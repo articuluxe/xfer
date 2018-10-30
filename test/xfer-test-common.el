@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Friday, March 31, 2017
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-10-30 08:50:49 dharms>
+;; Modified Time-stamp: <2018-10-30 09:03:57 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools xfer test
 
@@ -47,5 +47,6 @@
 (setq debug-on-error t)
 
 ;; project-specific code begins here
+(require 'xfer)
 
 ;;; proviso-test-common.el ends here
