@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-10-30 08:57:18 dharms>
+;; Modified Time-stamp: <2018-10-30 21:39:56 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -27,6 +27,10 @@
 ;;
 
 ;;; Code:
+(require 'subr-x)
+(require 'seq)
+(require 'format-spec)
+
 (defvar xfer-compression-schemes
   '((zip
      :compress-exe "zip"
