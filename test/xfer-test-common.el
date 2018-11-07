@@ -3,9 +3,11 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Friday, March 31, 2017
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-10-30 09:03:57 dharms>
+;; Modified Time-stamp: <2018-11-06 08:06:11 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools xfer test
+;; URL: https://github.com/articuluxe/xfer.git
+;; Package-Requires: ((emacs "25.1"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
