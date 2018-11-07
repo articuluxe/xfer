@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-10-30 21:39:56 dharms>
+;; Modified Time-stamp: <2018-11-06 17:34:38 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -29,8 +29,10 @@
 ;;; Code:
 (require 'subr-x)
 (require 'seq)
+(require 'tramp)
 (require 'format-spec)
 
+;; compression
 (defvar xfer-compression-schemes
   '((zip
      :compress-exe "zip"
@@ -53,6 +55,18 @@
 (defvar xfer-compression-extensions
   '("zip" "gz" "gzip" "rar")
   "Extensions for already-compressed files.")
+
+;; transfer
+(defvar xfer-transfer-scheme-alist
+  '((scp
+     :exe "scp"
+     :cmd "scp %s %d"
+     )
+    (standard))
+  "Transfer scheme definitions.")
+
+(defvar xfer-transfer-schemes '(scp standard)
+  "List of transfer schemes to try in order.")
 
 (defun xfer-remote-executable-find (exe)
   "Try to find the binary associated with EXE on a remote host.
@@ -80,14 +94,15 @@ Optional FORCE specifies a compression method."
          (xfer-find-executable uncompress dst-path)
          (or (not force) (eq force method)))))
 
-(defun xfer--find-compression-method (src dest rules
-                                          &optional force)
+(defun xfer--find-compression-method (rules src &optional dest force)
   "Return a valid compression method among RULES to use for SRC and DEST.
+If DEST is not supplied, it is assumed to be the same as SRC.
 Optional FORCE specifies a compression method."
-  (let ((method (seq-find (lambda (element)
-                            (xfer--test-compression-method
-                             src dest element force))
-                          rules)))
+  (let* ((dest (or dest src))
+         (method (seq-find (lambda (element)
+                             (xfer--test-compression-method
+                              src dest element force))
+                           rules)))
     (when (and force (not method))      ;didn't find the override
       (setq method (seq-find (lambda (element)
                                (xfer--test-compression-method
@@ -95,37 +110,175 @@ Optional FORCE specifies a compression method."
                              rules)))
     method))
 
-(defun xfer-transfer-compress-file (path src dst method)
+(defun xfer-compress-file (path src dst method)
   "At PATH, compress SRC into DST using METHOD.
 METHOD's format is a plist according to `xfer-compression-schemes'."
   (let* ((default-directory path)
          (output (funcall (plist-get method :transform) dst))
          (cmd (format-spec (plist-get method :compress-cmd)
-                           `((?\i . ,src)
-                             (?\o . ,output))))
-         return)
-    (setq return (shell-command cmd))
-    ;; (when proviso-transfer-debug (message "proviso-transfer: %s (result:%d)"
-    ;;                                       cmd return))
-    output))
+                           `((?i . ,src)
+                             (?o . ,output))))
+         code)
+    (setq code (shell-command cmd))
+    (message "xfer-compress: %s (result:%d)" cmd code)
+    (and (eq code 0)
+         (file-exists-p output)
+         output)))
 
 (defun xfer-uncompress-file (path src dst method)
   "At PATH, uncompress SRC to DST using METHOD.
 METHOD's format is a plist according to `xfer-compression-schemes'."
   (let ((default-directory path)
         (cmd (format-spec (plist-get method :uncompress-cmd)
-                          `((?\i . ,src)
-                            (?\o . ,dst))))
-        return)
-    (setq return (shell-command cmd))
-    ;; (when proviso-transfer-debug (message "proviso-transfer: %s (result:%d)"
-    ;;                                       cmd return))
+                          `((?i . ,src)
+                            (?o . ,dst))))
+        code)
+    (setq code (shell-command cmd))
+    (message "xfer-uncompress: %s (result:%d)" cmd code)
     (delete-file src)))
 
 (defun xfer-file-compressed-p (file)
   "Return non-nil if FILE is compressed."
   (let ((ext (file-name-extension file)))
     (member ext xfer-compression-extensions)))
+
+(defun xfer--test-scheme (src dst scheme &optional force)
+  "Test paths SRC and DST for transfer method SCHEME.
+Optional FORCE specifies a preferred scheme."
+  (let ((method (car scheme))
+        (exe (plist-get (cdr scheme) :exe)))
+    (or (eq 'standard method)
+        (and (xfer-find-executable exe src)
+             (xfer-find-executable exe dst)
+             (or (not force) (eq force method))))))
+
+(defun xfer--find-scheme (src dst schemes &optional force)
+  "Return a valid transfer method for paths SRC to DST.
+SCHEMES is an alist of transfer schemes, see `xfer-transfer-scheme-alist'.
+Optional FORCE forces a scheme."
+  (let ((method (seq-find (lambda (elt)
+                            (xfer--test-scheme src dst elt force))
+                          schemes)))
+    ;; (when (and force (not method))      ;didn't find the override
+    ;;   (setq method (seq-find (lambda (elt)
+    ;;                            (xfer--test-scheme src dst elt))
+    ;;                          schemes)))
+    method))
+
+(defun xfer--should-compress (file src dst scheme)
+  "Return non-nil if FILE at SRC should be compressed before copying to DST.
+SRC and DST are the remote prefixes, or nil if paths aren't remote.
+SCHEME is the transfer scheme, which may have an opinion."
+  (and (not (xfer-file-compressed-p file))
+       (if src (if dst (not (string= src dst)) t) dst)))
+
+(defun xfer--copy-file (src-host src-dir src-file
+                                 dst-host dst-dir dst-file
+                                 scheme)
+  "Copy SRC-FILE in SRC-DIR on SRC-HOST to DST-FILE in DST-DIR on DST-HOST.
+SCHEME is the method to employ."
+  (let (cmd code source destination)
+    (setq source (if src-host
+                     (format "%s:%s" src-host
+                             (expand-file-name src-file src-dir))
+                   (expand-file-name src-file src-dir)))
+    (setq destination (if dst-host
+                          (format "%s:%s" dst-host
+                                  (expand-file-name dst-file dst-dir))
+                        (expand-file-name dst-file dst-dir)))
+    (setq cmd (format-spec (plist-get (cdr scheme) :cmd)
+                           `((?s . ,source)
+                             (?d . ,destination))))
+    (setq code (shell-command cmd))
+    (message "xfer: %s (result:%d)" cmd code)
+    (eq code 0)))
+
+(defun xfer-compress-file (file &optional force)
+  "Compress FILE.
+Optional FORCE forces a compression scheme."
+  (interactive "fFile: \nsCompress: ")
+  (let ((path
+
+(defun xfer-transfer-file (src dst &optional force force-compress)
+  "Transfer SRC to DST.
+Optional FORCE forces a transfer method (or list thereof).
+Optional FORCE-COMPRESS forces a compression method."
+  (interactive "fSource file: \nGDestination: \nsMethod: \nsCompress: ")
+  (let* ((src-path (file-name-directory src))
+         (src-file (file-name-nondirectory src))
+         (src-remote (file-remote-p src))
+         (dst-path (file-name-directory dst))
+         (dst-file (file-name-nondirectory dst))
+         (dst-remote (file-remote-p dst))
+         (start (current-time))
+         (methods (cond ((not force)
+                         xfer-transfer-schemes)
+                        ((listp force)
+                         force)
+                        (t (list force))))
+                                        ;         (method (pop methods)))
+         scheme)
+    (unless (memq 'standard methods)
+      (setq methods (append methods (list 'standard))))
+    (unless (file-exists-p src)
+      (user-error "File '%s' does not exist" src))
+    (when (string-empty-p dst-file)
+      (setq dst-file src-file))
+    (make-directory dst-path t)
+    (if (catch 'done
+          (dolist (method methods)
+            (when (setq scheme (xfer--find-scheme src-path dst-path
+                                                  xfer-transfer-scheme-alist
+                                                  method))
+              (let ((compress (and (xfer--should-compress src-file src-path
+                                                          dst-path scheme)
+                                   (xfer--find-compression-method
+                                    xfer-compression-schemes src-path dst-path
+                                    force-compress)))
+                     (source (expand-file-name src-file src-path))
+                     (destination (expand-file-name dst-file dst-path))
+                     source-host source-dir source-file
+                     dest-host dest-dir dest-file
+                     cmp-file)
+                (when compress
+                     (if (setq cmp-file (xfer-compress-file src-path src-file
+                                                            dst-file compress))
+                         (progn
+                           (setq source (expand-file-name cmp-file src-path))
+                           (setq destination (expand-file-name cmp-file dst-path)))
+                       (message "xfer: %s compression failed for %s"
+                                (car compress) source)
+                       (setq compress nil)))
+                (if (eq method 'standard)
+                    (copy-file source destination t t t t)
+                  (if src-remote
+                    (with-parsed-tramp-file-name source var
+                      (setq source-host var-host)
+                      (setq source-dir (file-name-directory var-localname))
+                      (setq source-file (file-name-nondirectory var-localname)))
+                    (setq source-dir (file-name-directory source))
+                    (setq source-file (file-name-nondirectory source)))
+                  (if dst-remote
+                    (with-parsed-tramp-file-name destination var
+                      (setq dest-host var-host)
+                      (setq dest-dir (file-name-directory var-localname))
+                      (setq dest-file (file-name-nondirectory var-localname)))
+                    (setq dest-dir (file-name-directory destination))
+                    (setq dest-file (file-name-nondirectory destination)))
+                  (xfer--copy-file source-host source-dir source-file
+                                   dest-host dest-dir dest-file scheme))
+                (when compress
+                  (xfer-uncompress-file dst-path cmp-file dst-file compress)
+                  (delete-file source)
+                  (delete-file destination))
+                (message "drh %s exists %s" dst (file-exists-p dst))
+                (if (file-exists-p dst)
+                    (throw 'done t)))))
+          (message "drh did not find a scheme for %s" dst)
+          (throw 'done nil))
+        (message "Transferred %s to %s in %.3f sec." src dst
+                 (float-time (time-subtract (current-time) start)))
+      (user-error "Unable to transfer %s to %s" src dst))))
 
 (provide 'xfer)
 ;;; xfer.el ends here
