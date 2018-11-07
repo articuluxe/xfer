@@ -5,7 +5,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-06 17:32:07 dharms>
+;; Modified Time-stamp: <2018-11-07 17:27:53 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -69,6 +69,37 @@
          (xfer-transfer-file src dst)
          :type 'user-error)))
     (delete-directory (concat base "stage") t)))
+
+(ert-deftest xfer-test-compression ()
+  (let* ((base (file-name-directory load-file-name))
+         (stage (concat base "stage/"))
+         (file "test_xfer.el")
+         (src (concat base file))
+         result)
+    (delete-directory stage t)
+    (make-directory stage t)
+    (copy-file src stage)
+    (setq result
+          (xfer-compress-file (concat stage file) nil 'zip))
+    (should result)
+    (should (file-exists-p result))
+    (delete-directory stage t)
+    )
+  (let* ((base (file-name-directory load-file-name))
+         (stage (concat base "stage/"))
+         (file "test_xfer.el")
+         (src (concat base file))
+         result)
+    (delete-directory stage t)
+    (make-directory stage t)
+    (copy-file src stage)
+    (setq result
+          (xfer-compress-file (concat stage file) nil 'gzip))
+    (should result)
+    (should (file-exists-p result))
+    (delete-directory stage t)
+    )
+  )
 
 (ert-run-tests-batch-and-exit (car argv))
 ;;; test_xfer.el ends here

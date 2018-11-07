@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-06 17:34:38 dharms>
+;; Modified Time-stamp: <2018-11-07 17:26:30 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -110,12 +110,12 @@ Optional FORCE specifies a compression method."
                              rules)))
     method))
 
-(defun xfer-compress-file (path src dst method)
+(defun xfer--compress-file (path src dst method)
   "At PATH, compress SRC into DST using METHOD.
 METHOD's format is a plist according to `xfer-compression-schemes'."
   (let* ((default-directory path)
-         (output (funcall (plist-get method :transform) dst))
-         (cmd (format-spec (plist-get method :compress-cmd)
+         (output (funcall (plist-get (cdr method) :transform) dst))
+         (cmd (format-spec (plist-get (cdr method) :compress-cmd)
                            `((?i . ,src)
                              (?o . ,output))))
          code)
@@ -123,9 +123,9 @@ METHOD's format is a plist according to `xfer-compression-schemes'."
     (message "xfer-compress: %s (result:%d)" cmd code)
     (and (eq code 0)
          (file-exists-p output)
-         output)))
+         (cons (car method) output))))
 
-(defun xfer-uncompress-file (path src dst method)
+(defun xfer--uncompress-file (path src dst method)
   "At PATH, uncompress SRC to DST using METHOD.
 METHOD's format is a plist according to `xfer-compression-schemes'."
   (let ((default-directory path)
@@ -193,11 +193,31 @@ SCHEME is the method to employ."
     (message "xfer: %s (result:%d)" cmd code)
     (eq code 0)))
 
-(defun xfer-compress-file (file &optional force)
+(defun xfer-compress-file (file &optional dest force)
   "Compress FILE.
-Optional FORCE forces a compression scheme."
+DEST, if supplied, specifies the intended destination path; this
+function makes a best effort to see that the compression scheme
+used has a corresponding uncompression scheme at that path.  If
+not supplied, this defaults to the same path as FILE.  Optional
+FORCE forces a compression scheme."
   (interactive "fFile: \nsCompress: ")
-  (let ((path
+  (let* ((src-dir (file-name-directory file))
+         (src-file (file-name-nondirectory file))
+         (dst-dir (or dest src-dir))
+         (scheme (xfer--find-compression-method
+                  xfer-compression-schemes src-dir dst-dir force))
+         result zipped)
+    (if scheme
+        (if (and (setq result (xfer--compress-file
+                               src-dir src-file src-file scheme))
+                 (setq zipped (expand-file-name (cdr result) src-dir))
+                 (file-exists-p zipped)
+                 (prog1 t
+                   (message "xfer compressed %s to %s via %s"
+                            file zipped (car result))))
+            zipped
+          (user-error "Xfer unable to compress %s" file))
+      (user-error "Xfer unable to find compression method for %s" file))))
 
 (defun xfer-transfer-file (src dst &optional force force-compress)
   "Transfer SRC to DST.
@@ -241,7 +261,7 @@ Optional FORCE-COMPRESS forces a compression method."
                      dest-host dest-dir dest-file
                      cmp-file)
                 (when compress
-                     (if (setq cmp-file (xfer-compress-file src-path src-file
+                     (if (setq cmp-file (xfer--compress-file src-path src-file
                                                             dst-file compress))
                          (progn
                            (setq source (expand-file-name cmp-file src-path))
@@ -268,7 +288,7 @@ Optional FORCE-COMPRESS forces a compression method."
                   (xfer--copy-file source-host source-dir source-file
                                    dest-host dest-dir dest-file scheme))
                 (when compress
-                  (xfer-uncompress-file dst-path cmp-file dst-file compress)
+                  (xfer--uncompress-file dst-path cmp-file dst-file compress)
                   (delete-file source)
                   (delete-file destination))
                 (message "drh %s exists %s" dst (file-exists-p dst))
