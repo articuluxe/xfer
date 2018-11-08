@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-08 08:23:31 dharms>
+;; Modified Time-stamp: <2018-11-08 13:09:12 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -37,16 +37,14 @@
   '((zip
      :compress-exe "zip"
      :uncompress-exe "unzip"
-     :transform (lambda (name)
-                  (concat name ".zip"))
+     :extensions ("zip")
      :compress-cmd "zip %o -r --filesync %i"
      :uncompress-cmd "unzip -p %i > %o"
      )
     (gzip
      :compress-exe "gzip"
      :uncompress-exe "gunzip"
-     :transform (lambda (name)
-                  (concat name ".gz"))
+     :extensions ("gz")
      :compress-cmd "gzip -c9 %i > %o"
      :uncompress-cmd "gunzip -c9 %i > %o"
      ))
@@ -131,27 +129,28 @@ Optional FORCE specifies a compression method."
   "At PATH, compress SRC into DST using METHOD.
 METHOD's format is a plist according to `xfer-compression-schemes'."
   (let* ((default-directory path)
-         (output (funcall (plist-get (cdr method) :transform) dst))
+         (output (concat dst "." (car (plist-get
+                                       (cdr method) :extensions))))
          (cmd (format-spec (plist-get (cdr method) :compress-cmd)
                            `((?i . ,src)
                              (?o . ,output))))
          code)
     (setq code (shell-command cmd))
-    (message "xfer-compress: %s (result:%d)" cmd code)
+    (message "xfer %s: %s (result:%d)" (car method) cmd code)
     (and (eq code 0)
          (file-exists-p output)
-         (cons (car method) output))))
+         output)))
 
 (defun xfer--uncompress-file (path src dst method)
   "At PATH, uncompress SRC to DST using METHOD.
 METHOD's format is a plist according to `xfer-compression-schemes'."
   (let ((default-directory path)
-        (cmd (format-spec (plist-get method :uncompress-cmd)
+        (cmd (format-spec (plist-get (cdr method) :uncompress-cmd)
                           `((?i . ,src)
                             (?o . ,dst))))
         code)
     (setq code (shell-command cmd))
-    (message "xfer-uncompress: %s (result:%d)" cmd code)
+    (message "xfer %s: %s (result:%d)" (car method) cmd code)
     (delete-file src)))
 
 (defun xfer-file-compressed-p (file)
@@ -218,11 +217,11 @@ FORCE forces a compression scheme."
     (if scheme
         (if (and (setq result (xfer--compress-file
                                src-dir src-file src-file scheme))
-                 (setq zipped (expand-file-name (cdr result) src-dir))
+                 (setq zipped (expand-file-name result src-dir))
                  (file-exists-p zipped)
                  (prog1 t
                    (message "xfer compressed %s to %s via %s"
-                            file zipped (car result))))
+                            file zipped (car scheme))))
             zipped
           (user-error "Xfer unable to compress %s" file))
       (user-error "Xfer unable to find compression method for %s" file))))
