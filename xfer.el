@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-08 13:09:12 dharms>
+;; Modified Time-stamp: <2018-11-08 13:36:51 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -141,17 +141,20 @@ METHOD's format is a plist according to `xfer-compression-schemes'."
          (file-exists-p output)
          output)))
 
-(defun xfer--uncompress-file (path src dst method)
+(defun xfer--uncompress-file (path src method &optional dst)
   "At PATH, uncompress SRC to DST using METHOD.
+DST, if not supplied, defaults to SRC sans extension.
 METHOD's format is a plist according to `xfer-compression-schemes'."
-  (let ((default-directory path)
-        (cmd (format-spec (plist-get (cdr method) :uncompress-cmd)
-                          `((?i . ,src)
-                            (?o . ,dst))))
-        code)
+  (let* ((default-directory path)
+         (dst (or dst
+                  (file-name-sans-extension src)))
+         (cmd (format-spec (plist-get (cdr method) :uncompress-cmd)
+                           `((?i . ,src)
+                             (?o . ,dst))))
+         code)
     (setq code (shell-command cmd))
     (message "xfer %s: %s (result:%d)" (car method) cmd code)
-    (delete-file src)))
+    (expand-file-name dst path)))
 
 (defun xfer-file-compressed-p (file)
   "Return non-nil if FILE is compressed."
@@ -207,13 +210,15 @@ function makes a best effort to see that the compression scheme
 used has a corresponding uncompression scheme at that path.  If
 not supplied, this defaults to the same path as FILE.  Optional
 FORCE forces a compression scheme."
-  (interactive "fFile: \nsCompress: ")
+  (interactive "fFile: \nsMethod: ")
   (let* ((src-dir (file-name-directory file))
          (src-file (file-name-nondirectory file))
          (dst-dir (or dest src-dir))
          (scheme (xfer--find-compression-method
                   xfer-compression-schemes src-dir dst-dir force))
          result zipped)
+    (when (xfer-file-compressed-p file)
+      (user-error "File '%s' already compressed" file))
     (if scheme
         (if (and (setq result (xfer--compress-file
                                src-dir src-file src-file scheme))
@@ -225,6 +230,25 @@ FORCE forces a compression scheme."
             zipped
           (user-error "Xfer unable to compress %s" file))
       (user-error "Xfer unable to find compression method for %s" file))))
+
+(defun xfer-uncompress-file (file)
+  "Uncompress FILE."
+  (interactive "fFile: \nsMethod: ")
+  (let* ((path (file-name-directory file))
+         (name (file-name-nondirectory file))
+         (scheme (xfer--find-compression-method
+                  xfer-compression-schemes path path)) ;TODO
+         result)
+    (unless (xfer-file-compressed-p file)
+      (user-error "File '%s' not compressed" file))
+    (if scheme
+        (if (setq result (xfer--uncompress-file path name scheme))
+            (progn
+              (message "xfer uncompressed %s to %s via %s"
+                       file result (car scheme))
+              result)
+          (user-error "Xfer unable to uncomopress %s" file))
+      (user-error "Xfre unable to find uncompression method for %s" file))))
 
 (defun xfer-transfer-file (src dst &optional force force-compress)
   "Transfer SRC to DST.
@@ -294,7 +318,7 @@ Optional FORCE-COMPRESS forces a compression method."
                   (xfer--copy-file source-host source-dir source-file
                                    dest-host dest-dir dest-file scheme))
                 (when compress
-                  (xfer--uncompress-file dst-path cmp-file dst-file compress)
+                  (xfer--uncompress-file dst-path cmp-file compress dst-file)
                   (delete-file source)
                   (delete-file destination))
                 (message "drh %s exists %s" dst (file-exists-p dst))

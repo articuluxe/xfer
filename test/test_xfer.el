@@ -5,7 +5,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-07 17:27:53 dharms>
+;; Modified Time-stamp: <2018-11-08 13:40:51 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -83,6 +83,14 @@
           (xfer-compress-file (concat stage file) nil 'zip))
     (should result)
     (should (file-exists-p result))
+    (should (string= (file-name-extension result) "zip"))
+    (should-error
+     (xfer-compress-file result nil 'zip)
+     :type 'user-error)
+    (setq result (xfer-uncompress-file result))
+    (should (file-exists-p result))
+    (should (string= (file-name-nondirectory result)
+                     file))
     (delete-directory stage t)
     )
   (let* ((base (file-name-directory load-file-name))
@@ -95,8 +103,16 @@
     (copy-file src stage)
     (setq result
           (xfer-compress-file (concat stage file) nil 'gzip))
+    (should-error
+     (xfer-compress-file result nil 'gzip)
+     :type 'user-error)
     (should result)
     (should (file-exists-p result))
+    (should (string= (file-name-extension result) "gz"))
+    (setq result (xfer-uncompress-file result))
+    (should (file-exists-p result))
+    (should (string= (file-name-nondirectory result)
+                     file))
     (delete-directory stage t)
     )
   )
