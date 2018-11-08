@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-08 08:13:06 dharms>
+;; Modified Time-stamp: <2018-11-08 08:23:31 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -59,7 +59,8 @@
 ;; transfer
 (defvar xfer-transfer-scheme-alist
   '((scp
-     :exe "scp"
+     :local-exe "scp"
+     :remote-exe "scp"
      :cmd xfer--scp
      )
     (standard))
@@ -161,12 +162,14 @@ METHOD's format is a plist according to `xfer-compression-schemes'."
 (defun xfer--test-scheme (src dst scheme &optional force)
   "Test paths SRC and DST for transfer method SCHEME.
 Optional FORCE specifies a preferred scheme."
-  (let ((method (car scheme))
-        (exe (plist-get (cdr scheme) :exe)))
-    (or (eq 'standard method)
-        (and (xfer-find-executable exe src)
-             (xfer-find-executable exe dst)
-             (or (not force) (eq force method))))))
+  (or (eq (car scheme) 'standard)
+      (let* ((method (cdr scheme))
+             (local-exe (plist-get method :local-exe))
+             (remote-exe (plist-get method :remote-exe)))
+        (and (or (not force) (eq force (car scheme)))
+             (xfer-find-executable local-exe src)
+             (or (not remote-exe)
+                 (xfer-find-executable remote-exe dst))))))
 
 (defun xfer--find-scheme (src dst schemes &optional force)
   "Return a valid transfer method for paths SRC to DST.
@@ -175,10 +178,7 @@ Optional FORCE forces a scheme."
   (let ((method (seq-find (lambda (elt)
                             (xfer--test-scheme src dst elt force))
                           schemes)))
-    ;; (when (and force (not method))      ;didn't find the override
-    ;;   (setq method (seq-find (lambda (elt)
-    ;;                            (xfer--test-scheme src dst elt))
-    ;;                          schemes)))
+    ;; if an override is provided but not found, we return nil
     method))
 
 (defun xfer--should-compress (file src dst scheme)
