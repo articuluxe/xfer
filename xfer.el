@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-07 17:26:30 dharms>
+;; Modified Time-stamp: <2018-11-08 08:13:06 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -60,13 +60,29 @@
 (defvar xfer-transfer-scheme-alist
   '((scp
      :exe "scp"
-     :cmd "scp %s %d"
+     :cmd xfer--scp
      )
     (standard))
   "Transfer scheme definitions.")
 
 (defvar xfer-transfer-schemes '(scp standard)
   "List of transfer schemes to try in order.")
+
+(defun xfer--scp (src-host src-dir src-file
+                           dst-host dst-dir dst-file)
+  "Return an scp command to copy SRC-FILE in SRC-DIR on SRC-HOST.
+The destination will be DST-FILE in DST-DIR on DST-HOST."
+  (let ((source (if src-host
+                    (format "%s:%s" src-host
+                            (expand-file-name src-file src-dir))
+                  (expand-file-name src-file src-dir)))
+        (destination (if dst-host
+                         (format "%s:%s" dst-host
+                                 (expand-file-name dst-file dst-dir))
+                       (expand-file-name dst-file dst-dir)))
+        (spec "scp %s %d"))
+    (format-spec spec `((?s . ,source)
+                        (?d . ,destination)))))
 
 (defun xfer-remote-executable-find (exe)
   "Try to find the binary associated with EXE on a remote host.
@@ -177,19 +193,11 @@ SCHEME is the transfer scheme, which may have an opinion."
                                  scheme)
   "Copy SRC-FILE in SRC-DIR on SRC-HOST to DST-FILE in DST-DIR on DST-HOST.
 SCHEME is the method to employ."
-  (let (cmd code source destination)
-    (setq source (if src-host
-                     (format "%s:%s" src-host
-                             (expand-file-name src-file src-dir))
-                   (expand-file-name src-file src-dir)))
-    (setq destination (if dst-host
-                          (format "%s:%s" dst-host
-                                  (expand-file-name dst-file dst-dir))
-                        (expand-file-name dst-file dst-dir)))
-    (setq cmd (format-spec (plist-get (cdr scheme) :cmd)
-                           `((?s . ,source)
-                             (?d . ,destination))))
-    (setq code (shell-command cmd))
+  (let* ((method (cdr scheme))
+         (func (plist-get method :cmd))
+         (cmd (funcall func src-host src-dir src-file
+                       dst-host dst-dir dst-file))
+         (code (shell-command cmd)))
     (message "xfer: %s (result:%d)" cmd code)
     (eq code 0)))
 
@@ -236,7 +244,6 @@ Optional FORCE-COMPRESS forces a compression method."
                         ((listp force)
                          force)
                         (t (list force))))
-                                        ;         (method (pop methods)))
          scheme)
     (unless (memq 'standard methods)
       (setq methods (append methods (list 'standard))))
@@ -255,34 +262,34 @@ Optional FORCE-COMPRESS forces a compression method."
                                    (xfer--find-compression-method
                                     xfer-compression-schemes src-path dst-path
                                     force-compress)))
-                     (source (expand-file-name src-file src-path))
-                     (destination (expand-file-name dst-file dst-path))
-                     source-host source-dir source-file
-                     dest-host dest-dir dest-file
-                     cmp-file)
+                    (source (expand-file-name src-file src-path))
+                    (destination (expand-file-name dst-file dst-path))
+                    source-host source-dir source-file
+                    dest-host dest-dir dest-file
+                    cmp-file)
                 (when compress
-                     (if (setq cmp-file (xfer--compress-file src-path src-file
-                                                            dst-file compress))
-                         (progn
-                           (setq source (expand-file-name cmp-file src-path))
-                           (setq destination (expand-file-name cmp-file dst-path)))
-                       (message "xfer: %s compression failed for %s"
-                                (car compress) source)
-                       (setq compress nil)))
+                  (if (setq cmp-file (xfer--compress-file src-path src-file
+                                                          dst-file compress))
+                      (progn
+                        (setq source (expand-file-name cmp-file src-path))
+                        (setq destination (expand-file-name cmp-file dst-path)))
+                    (message "xfer: %s compression failed for %s"
+                             (car compress) source)
+                    (setq compress nil)))
                 (if (eq method 'standard)
                     (copy-file source destination t t t t)
                   (if src-remote
-                    (with-parsed-tramp-file-name source var
-                      (setq source-host var-host)
-                      (setq source-dir (file-name-directory var-localname))
-                      (setq source-file (file-name-nondirectory var-localname)))
+                      (with-parsed-tramp-file-name source var
+                        (setq source-host var-host)
+                        (setq source-dir (file-name-directory var-localname))
+                        (setq source-file (file-name-nondirectory var-localname)))
                     (setq source-dir (file-name-directory source))
                     (setq source-file (file-name-nondirectory source)))
                   (if dst-remote
-                    (with-parsed-tramp-file-name destination var
-                      (setq dest-host var-host)
-                      (setq dest-dir (file-name-directory var-localname))
-                      (setq dest-file (file-name-nondirectory var-localname)))
+                      (with-parsed-tramp-file-name destination var
+                        (setq dest-host var-host)
+                        (setq dest-dir (file-name-directory var-localname))
+                        (setq dest-file (file-name-nondirectory var-localname)))
                     (setq dest-dir (file-name-directory destination))
                     (setq dest-file (file-name-nondirectory destination)))
                   (xfer--copy-file source-host source-dir source-file
