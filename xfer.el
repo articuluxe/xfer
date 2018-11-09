@@ -74,10 +74,12 @@
 (if (eq (window-system) 'w32)
     (add-to-list 'xfer-transfer-schemes 'pscp))
 
-(defun xfer--scp (src-host src-dir src-file
-                           dst-host dst-dir dst-file)
+(defun xfer--scp (src-fullname src-host src-dir src-file
+                               dst-fullname dst-host dst-dir
+                               dst-file)
   "Return an scp command to copy SRC-FILE in SRC-DIR on SRC-HOST.
-The destination will be DST-FILE in DST-DIR on DST-HOST."
+The destination will be DST-FILE in DST-DIR on DST-HOST.
+SRC-FULLNAME and DST-FULLNAME contain the full tramp paths, if any."
   (let ((source (if src-host
                     (format "%s:%s" src-host
                             (expand-file-name src-file src-dir))
@@ -91,10 +93,13 @@ The destination will be DST-FILE in DST-DIR on DST-HOST."
                         (?d . ,destination)))))
 
 
-(defun xfer--pscp (src-host src-dir src-file
-                           dst-host dst-dir dst-file)
-  "Return an scp command to copy SRC-FILE in SRC-DIR on SRC-HOST.
-The destination will be DST-FILE in DST-DIR on DST-HOST."
+(defun xfer--pscp (src-fullname src-host src-dir src-file
+                                dst-fullname dst-host dst-dir
+                                dst-file)
+  "Return a pscp command to copy SRC-FILE in SRC-DIR on SRC-HOST.
+The destination will be DST-FILE in DST-DIR on DST-HOST.
+SRC-FULLNAME and DST-FULLNAME contain the full tramp paths, if any.
+If local, host strings should be nil."
   (let ((source (if src-host
                     (format "%s:%s" src-host
                             (expand-file-name src-file src-dir))
