@@ -61,11 +61,18 @@
      :remote-exe "scp"
      :cmd xfer--scp
      )
+    (pscp
+     :local-exe "pscp"
+     :cmd xfer--pscp
+     )
     (standard))
   "Transfer scheme definitions.")
 
 (defvar xfer-transfer-schemes '(scp standard)
   "List of transfer schemes to try in order.")
+
+(if (eq (window-system) 'w32)
+    (add-to-list 'xfer-transfer-schemes 'pscp))
 
 (defun xfer--scp (src-host src-dir src-file
                            dst-host dst-dir dst-file)
@@ -80,6 +87,24 @@ The destination will be DST-FILE in DST-DIR on DST-HOST."
                                  (expand-file-name dst-file dst-dir))
                        (expand-file-name dst-file dst-dir)))
         (spec "scp %s %d"))
+    (format-spec spec `((?s . ,source)
+                        (?d . ,destination)))))
+
+
+(defun xfer--pscp (src-host src-dir src-file
+                           dst-host dst-dir dst-file)
+  "Return an scp command to copy SRC-FILE in SRC-DIR on SRC-HOST.
+The destination will be DST-FILE in DST-DIR on DST-HOST."
+  (let ((source (if src-host
+                    (format "%s:%s" src-host
+                            (expand-file-name src-file src-dir))
+                  (expand-file-name src-file src-dir)))
+        (destination (if dst-host
+                         (format "%s:%s" dst-host
+                                 (expand-file-name dst-file dst-dir))
+                       (expand-file-name dst-file dst-dir)))
+        ;; TODO: remove $HOME or ~
+        (spec "pscp -batch -p -q %s %d"))
     (format-spec spec `((?s . ,source)
                         (?d . ,destination)))))
 
