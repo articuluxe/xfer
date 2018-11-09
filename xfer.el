@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-09 07:37:25 dharms>
+;; Modified Time-stamp: <2018-11-09 07:39:45 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -148,7 +148,6 @@ a compression method."
            (and
             (or (not force) (eq force method))
             (xfer-find-executable uncompress dst-path)
-            (message "drh &&& looking at %s " src-path)
             (member (file-name-extension src-path)
                     (plist-get (cdr scheme) :extensions)))))))
 
@@ -373,10 +372,8 @@ Optional FORCE-COMPRESS forces a compression method."
                   (xfer--uncompress-file dst-path cmp-file compress dst-file)
                   (delete-file source)
                   (delete-file destination))
-                (message "drh %s exists %s" dst (file-exists-p dst))
                 (if (file-exists-p dst)
                     (throw 'done t)))))
-          (message "drh did not find a scheme for %s" dst)
           (throw 'done nil))
         (message "Transferred %s to %s in %.3f sec." src dst
                  (float-time (time-subtract (current-time) start)))
