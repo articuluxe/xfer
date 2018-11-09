@@ -99,18 +99,43 @@ The destination will be DST-FILE in DST-DIR on DST-HOST."
                     (format "%s:%s" src-host
                             (expand-file-name src-file src-dir))
                   (expand-file-name src-file src-dir)))
+        (source-home (if src-host
+                         (let ((default-directory
+                                 (file-name-directory src-fullname)))
+                           (xfer-homedir-find))
+                       (xfer-homedir-find)))
         (destination (if dst-host
                          (format "%s:%s" dst-host
                                  (expand-file-name dst-file dst-dir))
                        (expand-file-name dst-file dst-dir)))
-        ;; TODO: remove $HOME or ~
+        (dest-home (if dst-host
+                       (let ((default-directory
+                               (file-name-directory dst-fullname)))
+                         (xfer-homedir-find))
+                     (xfer-homedir-find)))
+        (tilde "~/")
         (spec "pscp -batch -p -q %s %d"))
+    ;; unless paths are absolute, pscp assumes they are in the home dir
+    (setq source (replace-regexp-in-string tilde "" source))
+    (setq source (replace-regexp-in-string (concat source-home "/")
+                                           "" source))
+    (setq destination (replace-regexp-in-string tilde "" destination))
+    (setq destination (replace-regexp-in-string (concat dest-home "/")
+                                                "" destination))
     (format-spec spec `((?s . ,source)
                         (?d . ,destination)))))
 
+(defun xfer-homedir-find ()
+  "Find the value of the $HOME environment variable.
+Note that `getenv' always operates on the local host."
+  (or (string-trim
+       (shell-command-to-string
+        (format "echo $HOME")))
+      (getenv "HOME")))
+
 (defun xfer-remote-executable-find (exe)
   "Try to find the binary associated with EXE on a remote host.
-Note that `executable-find' operates on the local host."
+Note that `executable-find' always operates on the local host."
   (string-trim (shell-command-to-string (format "which %s" exe))))
 
 (defun xfer-find-executable (exe &optional path)
