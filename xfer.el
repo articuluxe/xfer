@@ -363,7 +363,7 @@ that forces a compression method by name, see
                         ((listp force)
                          force)
                         (t (list force))))
-         scheme)
+         scheme done)
     (unless (memq 'standard methods)
       (setq methods (append methods (list 'standard))))
     (unless (file-exists-p src)
@@ -371,56 +371,61 @@ that forces a compression method by name, see
     (when (string-empty-p dst-file)
       (setq dst-file src-file))
     (make-directory dst-path t)
-    (if (catch 'done
-          (dolist (method methods)
-            (when (setq scheme (xfer--find-scheme src-path dst-path
-                                                  xfer-transfer-scheme-alist
-                                                  method))
-              (let ((compress (and (xfer--should-compress src-file src-path
-                                                          dst-path scheme)
-                                   (xfer--find-compression-method
-                                    xfer-compression-schemes src-path dst-path
-                                    'both force-compress)))
-                    (source (expand-file-name src-file src-path))
-                    (destination (expand-file-name dst-file dst-path))
-                    source-host source-dir source-file
-                    dest-host dest-dir dest-file
-                    cmp-file)
-                (when compress
-                  (if (setq cmp-file (xfer--compress-file src-path src-file
-                                                          dst-file compress))
-                      (progn
-                        (setq source (expand-file-name cmp-file src-path))
-                        (setq destination (expand-file-name cmp-file dst-path)))
-                    (message "xfer: %s compression failed for %s"
-                             (car compress) source)
-                    (setq compress nil)))
-                (if (eq method 'standard)
-                    (copy-file source destination t t t t)
-                  (if src-remote
-                      (with-parsed-tramp-file-name source var
-                        (setq source-host var-host)
-                        (setq source-dir (file-name-directory var-localname))
-                        (setq source-file (file-name-nondirectory var-localname)))
-                    (setq source-dir (file-name-directory source))
-                    (setq source-file (file-name-nondirectory source)))
-                  (if dst-remote
-                      (with-parsed-tramp-file-name destination var
-                        (setq dest-host var-host)
-                        (setq dest-dir (file-name-directory var-localname))
-                        (setq dest-file (file-name-nondirectory var-localname)))
-                    (setq dest-dir (file-name-directory destination))
-                    (setq dest-file (file-name-nondirectory destination)))
-                  (xfer--copy-file source-host source-dir source-file
-                                   dest-host dest-dir dest-file scheme))
-                (when compress
-                  (xfer--uncompress-file dst-path cmp-file compress dst-file)
-                  (delete-file source)
-                  (delete-file destination))
-                (if (file-exists-p dst)
-                    (throw 'done t)))))
-          (throw 'done nil))
-        (message "Transferred %s to %s in %.3f sec." src dst
+    (setq done
+          (catch 'done
+            (dolist (method methods)
+              (when (setq scheme (xfer--find-scheme src-path dst-path
+                                                    xfer-transfer-scheme-alist
+                                                    method))
+                (let ((compress (and (xfer--should-compress src-file src-path
+                                                            dst-path scheme)
+                                     (xfer--find-compression-method
+                                      xfer-compression-schemes src-path dst-path
+                                      'both force-compress)))
+                      (source (expand-file-name src-file src-path))
+                      (destination (expand-file-name dst-file dst-path))
+                      source-host source-dir source-file
+                      dest-host dest-dir dest-file
+                      cmp-file)
+                  (when compress
+                    (if (setq cmp-file (xfer--compress-file src-path src-file
+                                                            dst-file compress))
+                        (progn
+                          (setq source (expand-file-name cmp-file src-path))
+                          (setq destination (expand-file-name cmp-file dst-path)))
+                      (message "xfer: %s compression failed for %s"
+                               (car compress) source)
+                      ;; but carry on
+                      (setq compress nil)))
+                  (if (eq method 'standard)
+                      (copy-file source destination t t t t)
+                    (if src-remote
+                        (with-parsed-tramp-file-name source var
+                          (setq source-host var-host)
+                          (setq source-dir (file-name-directory var-localname))
+                          (setq source-file (file-name-nondirectory var-localname)))
+                      (setq source-dir (file-name-directory source))
+                      (setq source-file (file-name-nondirectory source)))
+                    (if dst-remote
+                        (with-parsed-tramp-file-name destination var
+                          (setq dest-host var-host)
+                          (setq dest-dir (file-name-directory var-localname))
+                          (setq dest-file (file-name-nondirectory var-localname)))
+                      (setq dest-dir (file-name-directory destination))
+                      (setq dest-file (file-name-nondirectory destination)))
+                    (xfer--copy-file source source-host source-dir source-file
+                                     destination dest-host dest-dir dest-file scheme))
+                  (when compress
+                    (xfer--uncompress-file dst-path cmp-file compress dst-file)
+                    (unless (string= source src)
+                      (delete-file source))
+                    (unless (string= destination dst)
+                      (delete-file destination)))
+                  (if (file-exists-p dst)
+                      (throw 'done (car scheme))))))
+            (throw 'done nil)))
+    (if done
+        (message "xfer transferred %s to %s (%s) in %.3f sec." src dst done
                  (float-time (time-subtract (current-time) start)))
       (user-error "Unable to transfer %s to %s" src dst))))
 
