@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-09 07:39:45 dharms>
+;; Modified Time-stamp: <2018-11-09 16:38:36 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -159,9 +159,9 @@ If PATH is not supplied, `default-directory' is used."
 SRC-PATH is minimally the directory of the file in question, but
 may also be a compressed filename in case that type is
 'uncompress.  TYPE is a symbol in (compress, uncompress, both)
-telling which methods to search for.  SCHEME is a plist, see each
-element of `xfer-compression-schemes'.  Optional FORCE specifies
-a compression method."
+telling which methods to search for.  SCHEME is a plist, see
+`xfer-compression-schemes'.  Optional FORCE is a symbol that
+specifies a compression method by name."
   (let ((method (car scheme))
         (compress (plist-get (cdr scheme) :compress-exe))
         (uncompress (plist-get (cdr scheme) :uncompress-exe)))
@@ -185,8 +185,9 @@ a compression method."
   "Return a valid compression method among RULES to use for SRC and DEST.
 TYPE is a symbol in (compress, uncompress, both) telling which
 methods to search for.  If DEST is not supplied, it is assumed to
-be the same as SRC.  Optional FORCE specifies a compression
-method."
+be the same as SRC.  Optional FORCE is a symbol that specifies a
+compression method by name.  If FORCE is not found, a fallback is
+searched for."
   (let* ((dest (or dest src))
          (type (or type 'both))
          (method (seq-find (lambda (element)
@@ -202,7 +203,8 @@ method."
 
 (defun xfer--compress-file (path src dst method)
   "At PATH, compress SRC into DST using METHOD.
-METHOD's format is a plist according to `xfer-compression-schemes'."
+METHOD's format is a plist according to `xfer-compression-schemes'.
+If successful, returns the resultant compressed file name."
   (let* ((default-directory path)
          (output (concat dst "." (car (plist-get
                                        (cdr method) :extensions))))
@@ -238,42 +240,50 @@ METHOD's format is a plist according to `xfer-compression-schemes'."
 
 (defun xfer--test-scheme (src dst scheme &optional force)
   "Test paths SRC and DST for transfer method SCHEME.
-Optional FORCE specifies a preferred scheme."
-  (or (eq (car scheme) 'standard)
+SCHEME's format is according to `xfer-transfer-scheme-alist'.
+Optional FORCE is a symbol that specifies a preferred scheme by
+name."
+  (or (eq (car scheme) 'standard)       ;standard primitives always work
       (let* ((method (cdr scheme))
              (local-exe (plist-get method :local-exe))
              (remote-exe (plist-get method :remote-exe)))
         (and (or (not force) (eq force (car scheme)))
              (xfer-find-executable local-exe src)
+             ;; we don't require remote executable be present
              (or (not remote-exe)
                  (xfer-find-executable remote-exe dst))))))
 
 (defun xfer--find-scheme (src dst schemes &optional force)
   "Return a valid transfer method for paths SRC to DST.
 SCHEMES is an alist of transfer schemes, see `xfer-transfer-scheme-alist'.
-Optional FORCE forces a scheme."
+Optional FORCE is a symbol that forces a scheme by name."
   (let ((method (seq-find (lambda (elt)
                             (xfer--test-scheme src dst elt force))
                           schemes)))
-    ;; if an override is provided but not found, we return nil
+    ;; unlike compression schemes (which fallback if needed), for transfer
+    ;; schemes if an override is provided but not found, we return nil
     method))
 
 (defun xfer--should-compress (file src dst scheme)
   "Return non-nil if FILE at SRC should be compressed before copying to DST.
-SRC and DST are the remote prefixes, or nil if paths aren't remote.
-SCHEME is the transfer scheme, which may have an opinion."
+SRC and DST are the remote prefixes, or nil if paths aren't
+remote.  SCHEME is the transfer scheme, see
+`xfer-transfer-scheme-alist', which may have an opinion."
   (and (not (xfer-file-compressed-p file))
+       ;; never compress on same host
        (if src (if dst (not (string= src dst)) t) dst)))
 
-(defun xfer--copy-file (src-host src-dir src-file
-                                 dst-host dst-dir dst-file
-                                 scheme)
+(defun xfer--copy-file (src-fullname src-host src-dir src-file
+                                     dst-fullname dst-host
+                                     dst-dir dst-file scheme)
   "Copy SRC-FILE in SRC-DIR on SRC-HOST to DST-FILE in DST-DIR on DST-HOST.
-SCHEME is the method to employ."
+SRC-FULLNAME and DST-FULLNAME contain the full tramp path, if any.
+SCHEME is the method to employ, see `xfer-transfer-scheme-alist'.
+Returns non-nil if successful."
   (let* ((method (cdr scheme))
          (func (plist-get method :cmd))
-         (cmd (funcall func src-host src-dir src-file
-                       dst-host dst-dir dst-file))
+         (cmd (funcall func src-fullname src-host src-dir src-file
+                       dst-fullname dst-host dst-dir dst-file))
          (code (shell-command cmd)))
     (message "xfer: %s (result:%d)" cmd code)
     (eq code 0)))
@@ -284,7 +294,8 @@ DEST, if supplied, specifies the intended destination path; this
 function makes a best effort to see that the compression scheme
 used has a corresponding uncompression scheme at that path.  If
 not supplied, this defaults to the same path as FILE.  Optional
-FORCE forces a compression scheme."
+FORCE is a symbol that forces a compression scheme by name, see
+`xfer-transfer-schemes'."
   (interactive "fFile: \nsMethod: ")
   (let* ((src-dir (file-name-directory file))
          (src-file (file-name-nondirectory file))
@@ -310,7 +321,8 @@ FORCE forces a compression scheme."
       (user-error "Xfer unable to find compression method for %s" file))))
 
 (defun xfer-uncompress-file (file)
-  "Uncompress FILE."
+  "Uncompress FILE.
+The uncompression scheme will be chosen based on extension."
   (interactive "fFile: \nsMethod: ")
   (let* ((path (file-name-directory file))
          (name (file-name-nondirectory file))
@@ -333,8 +345,11 @@ FORCE forces a compression scheme."
 
 (defun xfer-transfer-file (src dst &optional force force-compress)
   "Transfer SRC to DST.
-Optional FORCE forces a transfer method (or list thereof).
-Optional FORCE-COMPRESS forces a compression method."
+Optional FORCE is an atom, or a list of atoms that are tried in
+order, specifying the transfer method by name, see
+`xfer-transfer-schemes'.  Optional FORCE-COMPRESS is a symbol
+that forces a compression method by name, see
+`xfer-compression-schemes'."
   (interactive "fSource file: \nGDestination: \nsMethod: \nsCompress: ")
   (let* ((src-path (file-name-directory src))
          (src-file (file-name-nondirectory src))
