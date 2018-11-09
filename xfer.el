@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-08 13:36:51 dharms>
+;; Modified Time-stamp: <2018-11-09 07:37:25 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -116,37 +116,58 @@ Note that `executable-find' operates on the local host."
 (defun xfer-find-executable (exe &optional path)
   "Search for executable EXE given directory PATH.
 If PATH is not supplied, `default-directory' is used."
-  (let* ((default-directory (or path default-directory))
+  (let* ((default-directory (or (file-name-directory path)
+                                default-directory))
          (func (if (file-remote-p default-directory)
                    #'xfer-remote-executable-find
                  #'executable-find)))
     (funcall func exe)))
 
-(defun xfer--test-compression-method (src-path dst-path scheme
-                                               &optional force)
+(defun xfer--test-compression-methods (src-path dst-path scheme
+                                                &optional type force)
   "Test SRC-PATH and DST-PATH for compression method SCHEME.
-SCHEME is a plist, see each element of `xfer-compression-schemes'.
-Optional FORCE specifies a compression method."
+SRC-PATH is minimally the directory of the file in question, but
+may also be a compressed filename in case that type is
+'uncompress.  TYPE is a symbol in (compress, uncompress, both)
+telling which methods to search for.  SCHEME is a plist, see each
+element of `xfer-compression-schemes'.  Optional FORCE specifies
+a compression method."
   (let ((method (car scheme))
         (compress (plist-get (cdr scheme) :compress-exe))
         (uncompress (plist-get (cdr scheme) :uncompress-exe)))
-    (and (xfer-find-executable compress src-path)
-         (xfer-find-executable uncompress dst-path)
-         (or (not force) (eq force method)))))
+    (cond ((or (not type) (eq type 'both))
+           (and
+            (or (not force) (eq force method))
+            (xfer-find-executable compress src-path)
+            (xfer-find-executable uncompress dst-path)))
+          ((eq type 'compress)
+           (and
+            (or (not force) (eq force method))
+            (xfer-find-executable compress src-path)))
+          ((eq type 'uncompress)
+           (and
+            (or (not force) (eq force method))
+            (xfer-find-executable uncompress dst-path)
+            (message "drh &&& looking at %s " src-path)
+            (member (file-name-extension src-path)
+                    (plist-get (cdr scheme) :extensions)))))))
 
-(defun xfer--find-compression-method (rules src &optional dest force)
+(defun xfer--find-compression-method (rules src &optional dest type force)
   "Return a valid compression method among RULES to use for SRC and DEST.
-If DEST is not supplied, it is assumed to be the same as SRC.
-Optional FORCE specifies a compression method."
+TYPE is a symbol in (compress, uncompress, both) telling which
+methods to search for.  If DEST is not supplied, it is assumed to
+be the same as SRC.  Optional FORCE specifies a compression
+method."
   (let* ((dest (or dest src))
+         (type (or type 'both))
          (method (seq-find (lambda (element)
-                             (xfer--test-compression-method
-                              src dest element force))
+                             (xfer--test-compression-methods
+                              src dest element type force))
                            rules)))
     (when (and force (not method))      ;didn't find the override
       (setq method (seq-find (lambda (element)
-                               (xfer--test-compression-method
-                                src dest element))
+                               (xfer--test-compression-methods
+                                src dest element type))
                              rules)))
     method))
 
@@ -238,9 +259,12 @@ FORCE forces a compression scheme."
   (interactive "fFile: \nsMethod: ")
   (let* ((src-dir (file-name-directory file))
          (src-file (file-name-nondirectory file))
-         (dst-dir (or dest src-dir))
          (scheme (xfer--find-compression-method
-                  xfer-compression-schemes src-dir dst-dir force))
+                  xfer-compression-schemes
+                  src-dir
+                  (or dest src-dir)
+                  (if dest 'both 'compress)
+                  force))
          result zipped)
     (when (xfer-file-compressed-p file)
       (user-error "File '%s' already compressed" file))
@@ -262,7 +286,10 @@ FORCE forces a compression scheme."
   (let* ((path (file-name-directory file))
          (name (file-name-nondirectory file))
          (scheme (xfer--find-compression-method
-                  xfer-compression-schemes path path)) ;TODO
+                  xfer-compression-schemes
+                  file                  ;use file here for extension
+                  path
+                  'uncompress))
          result)
     (unless (xfer-file-compressed-p file)
       (user-error "File '%s' not compressed" file))
@@ -272,8 +299,8 @@ FORCE forces a compression scheme."
               (message "xfer uncompressed %s to %s via %s"
                        file result (car scheme))
               result)
-          (user-error "Xfer unable to uncomopress %s" file))
-      (user-error "Xfre unable to find uncompression method for %s" file))))
+          (user-error "Xfer unable to uncompress %s" file))
+      (user-error "Xfer unable to find uncompression method for %s" file))))
 
 (defun xfer-transfer-file (src dst &optional force force-compress)
   "Transfer SRC to DST.
@@ -309,7 +336,7 @@ Optional FORCE-COMPRESS forces a compression method."
                                                           dst-path scheme)
                                    (xfer--find-compression-method
                                     xfer-compression-schemes src-path dst-path
-                                    force-compress)))
+                                    'both force-compress)))
                     (source (expand-file-name src-file src-path))
                     (destination (expand-file-name dst-file dst-path))
                     source-host source-dir source-file
