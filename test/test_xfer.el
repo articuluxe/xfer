@@ -5,7 +5,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-09 07:41:47 dharms>
+;; Modified Time-stamp: <2018-11-09 15:49:42 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -127,6 +127,18 @@
             (dst (concat base "stage/copy.el")))
         (delete-directory (concat base "stage") t)
         (xfer-transfer-file src dst 'standard)
+        (should (file-directory-p (concat base "stage")))
+        (should (file-exists-p dst)))
+      (let ((src (concat base "test_xfer.el"))
+            (dst (concat base "stage/copy.el")))
+        (delete-directory (concat base "stage") t)
+        (xfer-transfer-file src dst 'standard 'zip)
+        (should (file-directory-p (concat base "stage")))
+        (should (file-exists-p dst)))
+      (let ((src (concat base "test_xfer.el"))
+            (dst (concat base "stage/copy.el")))
+        (delete-directory (concat base "stage") t)
+        (xfer-transfer-file src dst 'standard 'gzip)
         (should (file-directory-p (concat base "stage")))
         (should (file-exists-p dst)))
       (let ((src (concat base "test_xfer.el"))
