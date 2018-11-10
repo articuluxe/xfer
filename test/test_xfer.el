@@ -5,7 +5,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-09 15:49:42 dharms>
+;; Modified Time-stamp: <2018-11-10 11:35:30 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -100,7 +100,31 @@
       (let ((src (concat base "test_xfer.el"))
             (dst (concat base "stage/copy.el")))
         (delete-directory (concat base "stage") t)
+        (xfer-transfer-file src dst '(standard))
+        (should (file-directory-p (concat base "stage")))
+        (should (file-exists-p dst)))
+      (let ((src (concat base "test_xfer.el"))
+            (dst (concat base "stage/copy.el")))
+        (delete-directory (concat base "stage") t)
+        (xfer-transfer-file src dst '(standard scp))
+        (should (file-directory-p (concat base "stage")))
+        (should (file-exists-p dst)))
+      (let ((src (concat base "test_xfer.el"))
+            (dst (concat base "stage/copy.el")))
+        (delete-directory (concat base "stage") t)
         (xfer-transfer-file src dst 'scp)
+        (should (file-directory-p (concat base "stage")))
+        (should (file-exists-p dst)))
+      (let ((src (concat base "test_xfer.el"))
+            (dst (concat base "stage/copy.el")))
+        (delete-directory (concat base "stage") t)
+        (xfer-transfer-file src dst '(scp))
+        (should (file-directory-p (concat base "stage")))
+        (should (file-exists-p dst)))
+      (let ((src (concat base "test_xfer.el"))
+            (dst (concat base "stage/copy.el")))
+        (delete-directory (concat base "stage") t)
+        (xfer-transfer-file src dst '(scp standard))
         (should (file-directory-p (concat base "stage")))
         (should (file-exists-p dst)))
       (let ((src (concat base "test_xfer.el"))
@@ -110,6 +134,7 @@
         (should (file-directory-p (concat base "stage")))
         (should (file-exists-p dst))
         (should (file-regular-p (concat dst "test_xfer.el"))))
+      ;nonexistent source
       (let ((src (concat base "nonexistent"))
             (dst (concat base "stage/")))
         (should-error
