@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-09 16:38:36 dharms>
+;; Modified Time-stamp: <2018-11-12 08:42:37 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -349,7 +349,7 @@ Optional FORCE is an atom, or a list of atoms that are tried in
 order, specifying the transfer method by name, see
 `xfer-transfer-schemes'.  Optional FORCE-COMPRESS is a symbol
 that forces a compression method by name, see
-`xfer-compression-schemes'."
+`xfer-compression-schemes', or 'none to inhibit compression."
   (interactive "fSource file: \nGDestination: \nsMethod: \nsCompress: ")
   (let* ((src-path (file-name-directory src))
          (src-file (file-name-nondirectory src))
@@ -377,7 +377,8 @@ that forces a compression method by name, see
               (when (setq scheme (xfer--find-scheme src-path dst-path
                                                     xfer-transfer-scheme-alist
                                                     method))
-                (let ((compress (and (xfer--should-compress src-file src-path
+                (let ((compress (and (not (eq force-compress 'none))
+                                     (xfer--should-compress src-file src-path
                                                             dst-path scheme)
                                      (xfer--find-compression-method
                                       xfer-compression-schemes src-path dst-path
