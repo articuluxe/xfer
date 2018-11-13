@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-12 08:42:37 dharms>
+;; Modified Time-stamp: <2018-11-13 08:22:09 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -378,8 +378,8 @@ that forces a compression method by name, see
                                                     xfer-transfer-scheme-alist
                                                     method))
                 (let ((compress (and (not (eq force-compress 'none))
-                                     (xfer--should-compress src-file src-path
-                                                            dst-path scheme)
+                                     (xfer--should-compress src-file src-remote
+                                                            dst-remote scheme)
                                      (xfer--find-compression-method
                                       xfer-compression-schemes src-path dst-path
                                       'both force-compress)))
