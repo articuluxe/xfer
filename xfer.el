@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-13 08:22:09 dharms>
+;; Modified Time-stamp: <2018-11-13 08:38:26 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -343,7 +343,43 @@ The uncompression scheme will be chosen based on extension."
           (user-error "Xfer unable to uncompress %s" file))
       (user-error "Xfer unable to find uncompression method for %s" file))))
 
+(defun xfer-transfer-file-async (src dst &optional force force-compress)
+  "Transfer SRC to DST asynchronously.
+Optional FORCE is an atom, or a list of atoms that are tried in
+order, specifying the transfer method by name, see
+`xfer-transfer-schemes'.  Optional FORCE-COMPRESS is a symbol
+that forces a compression method by name, see
+`xfer-compression-schemes'."
+  (interactive "fSource file: \nGDestination: \nsMethod: \nsCompress: ")
+  (let ((start (current-time))
+        msg)
+    (async-start
+     `(lambda ()
+        (setq inhibit-message t)
+        ,(async-inject-variables "load-path")
+        (require 'xfer)
+        (xfer--transfer-file ,src ,dst ,force ,force-compress))
+     `(lambda (result)
+        (if (car result)
+            (prog1 t
+              (message (cdr result)))
+          (user-error "%s" (cdr result)))))))
+
 (defun xfer-transfer-file (src dst &optional force force-compress)
+  "Transfer SRC to DST.
+Optional FORCE is an atom, or a list of atoms that are tried in
+order, specifying the transfer method by name, see
+`xfer-transfer-schemes'.  Optional FORCE-COMPRESS is a symbol
+that forces a compression method by name, see
+`xfer-compression-schemes', or 'none to inhibit compression."
+  (interactive "fSource file: \nGDestination: \nsMethod: \nsCompress: ")
+  (let ((result (xfer--transfer-file src dst force force-compress)))
+    (if (car result)
+        (prog1 t
+          (message (cdr result)))
+      (user-error "%s" (cdr result)))))
+
+(defun xfer--transfer-file (src dst &optional force force-compress)
   "Transfer SRC to DST.
 Optional FORCE is an atom, or a list of atoms that are tried in
 order, specifying the transfer method by name, see
@@ -426,9 +462,9 @@ that forces a compression method by name, see
                       (throw 'done (car scheme))))))
             (throw 'done nil)))
     (if done
-        (message "xfer transferred %s to %s (%s) in %.3f sec." src dst done
-                 (float-time (time-subtract (current-time) start)))
-      (user-error "Unable to transfer %s to %s" src dst))))
+        (cons t (format "xfer transferred %s to %s (%s) in %.3f sec." src dst done
+                        (float-time (time-subtract (current-time) start))))
+      (cons nil (format "Unable to transfer %s to %s" src dst)))))
 
 (provide 'xfer)
 ;;; xfer.el ends here
