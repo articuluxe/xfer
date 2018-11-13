@@ -176,6 +176,13 @@ If PATH is not supplied, `default-directory' is used."
                  #'executable-find)))
     (funcall func exe)))
 
+(defun xfer-abbreviate-file-name (filename)
+  "Return a shortened version of FILENAME for remote hosts."
+  (let ((abbreviated-home-dir
+         (format "\\`%s\\(/\\|\\'\\)"
+                 (xfer-homedir-find))))
+    (abbreviate-file-name filename)))
+
 (defun xfer--test-compression-methods (src-path dst-path scheme
                                                 &optional type force)
   "Test SRC-PATH and DST-PATH for compression method SCHEME.
