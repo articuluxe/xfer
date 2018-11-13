@@ -88,7 +88,7 @@ SRC-FULLNAME and DST-FULLNAME contain the full tramp paths, if any."
                          (format "%s:%s" dst-host
                                  (expand-file-name dst-file dst-dir))
                        (expand-file-name dst-file dst-dir)))
-        (spec "scp %s %d"))
+        (spec "scp -p -q %s %d"))
     (format-spec spec `((?s . ,source)
                         (?d . ,destination)))))
 
