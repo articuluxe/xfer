@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-14 08:14:26 dharms>
+;; Modified Time-stamp: <2018-11-14 08:15:37 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -448,7 +448,7 @@ that forces a compression method by name, see
                                (car compress) source)
                       ;; but carry on
                       (setq compress nil)))
-                  (if (eq method 'standard)
+                  (if (eq (car scheme) 'standard)
                       (copy-file source destination t t t t)
                     (if src-remote
                         (with-parsed-tramp-file-name source var
