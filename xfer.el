@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-13 08:38:26 dharms>
+;; Modified Time-stamp: <2018-11-14 08:14:26 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -60,10 +60,12 @@
      :local-exe "scp"
      :remote-exe "scp"
      :cmd xfer--scp
+     :predicate xfer--scp-enabled
      )
     (pscp
      :local-exe "pscp"
      :cmd xfer--pscp
+     :predicate xfer--scp-enabled
      )
     (standard))
   "Transfer scheme definitions.")
@@ -92,6 +94,15 @@ SRC-FULLNAME and DST-FULLNAME contain the full tramp paths, if any."
     (format-spec spec `((?s . ,source)
                         (?d . ,destination)))))
 
+(defun xfer--scp-enabled (src dst)
+  "Return non-nil if scp should be enabled from SRC to DST."
+  (let ((src-host (file-remote-p src))
+        (dst-host (file-remote-p dst)))
+    (if src-host
+        (if dst-host
+            (not (string= src-host dst-host))
+          t)
+      dst-host)))
 
 (defun xfer--pscp (src-fullname src-host src-dir src-file
                                 dst-fullname dst-host dst-dir
@@ -246,12 +257,15 @@ name."
   (or (eq (car scheme) 'standard)       ;standard primitives always work
       (let* ((method (cdr scheme))
              (local-exe (plist-get method :local-exe))
-             (remote-exe (plist-get method :remote-exe)))
+             (remote-exe (plist-get method :remote-exe))
+             (pred (plist-get method :predicate)))
         (and (or (not force) (eq force (car scheme)))
              (xfer-find-executable local-exe src)
              ;; we don't require remote executable be present
              (or (not remote-exe)
-                 (xfer-find-executable remote-exe dst))))))
+                 (xfer-find-executable remote-exe dst))
+             (if (and pred (functionp pred))
+                 (funcall pred src dst) t)))))
 
 (defun xfer--find-scheme (src dst schemes &optional force)
   "Return a valid transfer method for paths SRC to DST.
