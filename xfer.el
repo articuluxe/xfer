@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-14 08:15:37 dharms>
+;; Modified Time-stamp: <2018-11-15 17:30:41 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -34,20 +34,22 @@
 
 ;; compression
 (defvar xfer-compression-schemes
-  '((zip
-     :compress-exe "zip"
-     :uncompress-exe "unzip"
-     :extensions ("zip")
-     :compress-cmd "zip %o -r --filesync %i"
-     :uncompress-cmd "unzip -p %i > %o"
-     )
+  '(
     (gzip
      :compress-exe "gzip"
      :uncompress-exe "gunzip"
      :extensions ("gz")
-     :compress-cmd "gzip -c9 %i > %o"
-     :uncompress-cmd "gunzip -c9 %i > %o"
-     ))
+     :compress-cmd "gzip -fk9 %i"
+     :uncompress-cmd "gunzip -fk9 %i"
+     )
+    (zip
+     :compress-exe "zip"
+     :uncompress-exe "unzip"
+     :extensions ("zip")
+     :compress-cmd "zip %o -r --filesync %i"
+     :uncompress-cmd "unzip -jobq %i"
+     )
+    )
   "Compression scheme definitions.")
 
 (defvar xfer-compression-extensions
@@ -215,34 +217,64 @@ searched for."
 (defun xfer--compress-file (path src dst method)
   "At PATH, compress SRC into DST using METHOD.
 METHOD's format is a plist according to `xfer-compression-schemes'.
-If successful, returns the resultant compressed file name."
+If successful, returns a cons cell (FILE . MSG), where FILE is the
+compressed file name, and MSG is an informative  message.
+If not successful, returns a cons cell (nil . MSG), where MSG
+is an error message."
   (let* ((default-directory path)
-         (output (concat dst "." (car (plist-get
+         (output (concat src "." (car (plist-get
                                        (cdr method) :extensions))))
-         (cmd (format-spec (plist-get (cdr method) :compress-cmd)
-                           `((?i . ,src)
-                             (?o . ,output))))
-         code)
-    (setq code (shell-command cmd))
-    (message "xfer %s: %s (result:%d)" (car method) cmd code)
-    (and (eq code 0)
-         (file-exists-p output)
-         output)))
+         (spec (format-spec (plist-get (cdr method) :compress-cmd)
+                            `((?i . ,src)
+                              (?o . ,output))))
+         (cmd (split-string spec))
+         code msg)
+    (with-temp-buffer
+      (setq code (apply #'process-file (car cmd) nil t nil
+                        (cdr cmd)))
+      (if (eq code 0)
+          (setq msg (format "xfer: %s (result:%d)" spec code))
+        (setq msg (format "xfer: %s (result:%d) %s"
+                          spec code (buffer-string)))))
+    (if (and (eq code 0)
+             (file-exists-p output))
+        (cons output msg)
+      (cons nil msg))))
 
 (defun xfer--uncompress-file (path src method &optional dst)
   "At PATH, uncompress SRC to DST using METHOD.
 DST, if not supplied, defaults to SRC sans extension.
-METHOD's format is a plist according to `xfer-compression-schemes'."
+METHOD's format is a plist according to `xfer-compression-schemes'.
+If successful, returns a cons cell (FILE . MSG), where FILE is the
+uncompressed file name, and MSG is an informative  message.
+If not successful, returns a cons cell (nil . MSG), where MSG
+is an error message."
   (let* ((default-directory path)
          (dst (or dst
                   (file-name-sans-extension src)))
-         (cmd (format-spec (plist-get (cdr method) :uncompress-cmd)
-                           `((?i . ,src)
-                             (?o . ,dst))))
-         code)
-    (setq code (shell-command cmd))
-    (message "xfer %s: %s (result:%d)" (car method) cmd code)
-    (expand-file-name dst path)))
+         (tmp (expand-file-name src path))
+         (goal (expand-file-name dst path))
+         (spec (format-spec (plist-get (cdr method) :uncompress-cmd)
+                            `((?i . ,src)
+                              (?o . ,dst))))
+         (cmd (split-string spec))
+         code msg)
+    (with-temp-buffer
+      (setq code (apply #'process-file (car cmd) nil t nil
+                        (cdr cmd)))
+      (if (eq code 0)
+          (setq msg (format "xfer: %s (result:%d)" spec code))
+        (setq msg (format "xfer: %s (result:%d) %s"
+                          spec code (buffer-string)))))
+    (and (eq code 0)
+         (file-exists-p tmp)
+         (not (string= tmp goal))
+         (rename-file tmp goal t)
+         (message "xfer renamed %s to %s" tmp goal))
+    (if (and (eq code 0)
+             (file-exists-p goal))
+        (cons goal msg)
+      (cons nil msg))))
 
 (defun xfer-file-compressed-p (file)
   "Return non-nil if FILE is compressed."
@@ -323,15 +355,18 @@ FORCE is a symbol that forces a compression scheme by name, see
     (when (xfer-file-compressed-p file)
       (user-error "File '%s' already compressed" file))
     (if scheme
-        (if (and (setq result (xfer--compress-file
-                               src-dir src-file src-file scheme))
-                 (setq zipped (expand-file-name result src-dir))
-                 (file-exists-p zipped)
-                 (prog1 t
-                   (message "xfer compressed %s to %s via %s"
-                            file zipped (car scheme))))
-            zipped
-          (user-error "Xfer unable to compress %s" file))
+        (progn
+          (setq result (xfer--compress-file
+                        src-dir src-file src-file scheme))
+          (if (and (car result)
+                   (setq zipped (expand-file-name
+                                 (car result) src-dir))
+                   (file-exists-p zipped))
+              (progn
+                (message "xfer compressed %s to %s via %s"
+                         file zipped (car scheme))
+                zipped)
+            (user-error "Xfer unable to compress %s" file)))
       (user-error "Xfer unable to find compression method for %s" file))))
 
 (defun xfer-uncompress-file (file)
@@ -349,12 +384,14 @@ The uncompression scheme will be chosen based on extension."
     (unless (xfer-file-compressed-p file)
       (user-error "File '%s' not compressed" file))
     (if scheme
-        (if (setq result (xfer--uncompress-file path name scheme))
-            (progn
-              (message "xfer uncompressed %s to %s via %s"
-                       file result (car scheme))
-              result)
-          (user-error "Xfer unable to uncompress %s" file))
+        (progn
+          (setq result (xfer--uncompress-file path name scheme))
+          (if (car result)
+              (progn
+                (message "xfer uncompressed %s to %s via %s"
+                         file (car result) (car scheme))
+                (car result))
+            (user-error "Xfer unable to uncompress %s" file)))
       (user-error "Xfer unable to find uncompression method for %s" file))))
 
 (defun xfer-transfer-file-async (src dst &optional force force-compress)
@@ -437,15 +474,16 @@ that forces a compression method by name, see
                       (destination (expand-file-name dst-file dst-path))
                       source-host source-dir source-file
                       dest-host dest-dir dest-file
-                      cmp-file)
+                      result cmp-file)
                   (when compress
-                    (if (setq cmp-file (xfer--compress-file src-path src-file
-                                                            dst-file compress))
+                    (setq result (xfer--compress-file src-path src-file
+                                                      dst-file compress))
+                    (if (setq cmp-file (car result))
                         (progn
                           (setq source (expand-file-name cmp-file src-path))
                           (setq destination (expand-file-name cmp-file dst-path)))
-                      (message "xfer: %s compression failed for %s"
-                               (car compress) source)
+                      (message "xfer: %s compression failed for %s: %s"
+                               (car compress) source (cdr result))
                       ;; but carry on
                       (setq compress nil)))
                   (if (eq (car scheme) 'standard)
@@ -467,11 +505,15 @@ that forces a compression method by name, see
                     (xfer--copy-file source source-host source-dir source-file
                                      destination dest-host dest-dir dest-file scheme))
                   (when compress
-                    (xfer--uncompress-file dst-path cmp-file compress dst-file)
-                    (unless (string= source src)
-                      (delete-file source))
-                    (unless (string= destination dst)
-                      (delete-file destination)))
+                    (setq result (xfer--uncompress-file dst-path cmp-file compress
+                                                        dst-file))
+                    (if (car result)
+                        (progn
+                          (unless (string= source src)
+                            (delete-file source))
+                          (unless (string= destination dst)
+                            (delete-file destination)))
+                      (message "xfer %s error: %s" (car compress) (cdr result))))
                   (if (file-exists-p dst)
                       (throw 'done (car scheme))))))
             (throw 'done nil)))
