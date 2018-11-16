@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-16 08:45:22 dharms>
+;; Modified Time-stamp: <2018-11-16 08:52:31 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -32,6 +32,15 @@
 (require 'tramp)
 (require 'format-spec)
 (require 'async)
+
+(defgroup xfer nil "Transfer files using emacs."
+  :group 'tools
+  :prefix "xfer")
+
+;; verbose logging
+(defcustom xfer-debug t
+  "If non-nil, increases debug logging."
+  :type 'boolean)
 
 ;; compression
 (defvar xfer-compression-schemes
@@ -271,7 +280,8 @@ is an error message."
          (file-exists-p tmp)
          (not (string= tmp goal))
          (rename-file tmp goal t)
-         (message "xfer renamed %s to %s" tmp goal))
+         (when xfer-debug
+           (message "xfer renamed %s to %s" tmp goal)))
     (if (and (eq code 0)
              (file-exists-p goal))
         (cons goal msg)
@@ -492,8 +502,9 @@ that forces a compression method by name, see
                         (progn
                           (setq source (expand-file-name cmp-file src-path))
                           (setq destination (expand-file-name cmp-file dst-path)))
-                      (message "xfer: %s compression failed for %s: %s"
-                               (car compress) source (cdr result))
+                      (when xfer-debug
+                        (message "xfer: %s compression failed for %s: %s"
+                                 (car compress) source (cdr result)))
                       ;; but carry on
                       (setq compress nil)))
                   (if (eq (car scheme) 'standard)
@@ -523,7 +534,8 @@ that forces a compression method by name, see
                             (delete-file source))
                           (unless (string= destination dst)
                             (delete-file destination)))
-                      (message "xfer %s error: %s" (car compress) (cdr result))))
+                      (when xfer-debug
+                        (message "xfer %s error: %s" (car compress) (cdr result)))))
                   (if (file-exists-p dst)
                       (throw 'done (car scheme))))))
             (throw 'done nil)))
