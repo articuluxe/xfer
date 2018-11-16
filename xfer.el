@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-15 17:30:41 dharms>
+;; Modified Time-stamp: <2018-11-16 08:45:22 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -325,14 +325,23 @@ remote.  SCHEME is the transfer scheme, see
   "Copy SRC-FILE in SRC-DIR on SRC-HOST to DST-FILE in DST-DIR on DST-HOST.
 SRC-FULLNAME and DST-FULLNAME contain the full tramp path, if any.
 SCHEME is the method to employ, see `xfer-transfer-scheme-alist'.
-Returns non-nil if successful."
+Returns a cons cell (RET . MSG) where RET is non-nil on success,
+or nil on failure, and MSG is either an informative message,
+or an error message, respectively."
   (let* ((method (cdr scheme))
          (func (plist-get method :cmd))
-         (cmd (funcall func src-fullname src-host src-dir src-file
-                       dst-fullname dst-host dst-dir dst-file))
-         (code (shell-command cmd)))
-    (message "xfer: %s (result:%d)" cmd code)
-    (eq code 0)))
+         (spec (funcall func src-fullname src-host src-dir src-file
+                        dst-fullname dst-host dst-dir dst-file))
+         (cmd (split-string spec))
+         code msg)
+    (with-temp-buffer
+      (setq code (apply #'process-file (car cmd) nil t nil
+                        (cdr cmd)))
+      (if (eq code 0)
+          (setq msg (format "xfer: %s (result:%d)" spec code))
+        (setq msg  (format "xfer: %s (result:%d) %s"
+                           spec code (buffer-string)))))
+    (cons (eq code 0) msg)))
 
 (defun xfer-compress-file (file &optional dest force)
   "Compress FILE.
