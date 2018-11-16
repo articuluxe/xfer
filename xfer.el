@@ -31,6 +31,7 @@
 (require 'seq)
 (require 'tramp)
 (require 'format-spec)
+(require 'async)
 
 ;; compression
 (defvar xfer-compression-schemes
