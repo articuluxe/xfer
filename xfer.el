@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-16 08:52:31 dharms>
+;; Modified Time-stamp: <2018-11-17 06:52:45 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -228,7 +228,7 @@ searched for."
   "At PATH, compress SRC into DST using METHOD.
 METHOD's format is a plist according to `xfer-compression-schemes'.
 If successful, returns a cons cell (FILE . MSG), where FILE is the
-compressed file name, and MSG is an informative  message.
+compressed file name, and MSG is an informative message.
 If not successful, returns a cons cell (nil . MSG), where MSG
 is an error message."
   (let* ((default-directory path)
@@ -256,19 +256,18 @@ is an error message."
 DST, if not supplied, defaults to SRC sans extension.
 METHOD's format is a plist according to `xfer-compression-schemes'.
 If successful, returns a cons cell (FILE . MSG), where FILE is the
-uncompressed file name, and MSG is an informative  message.
+uncompressed file name, and MSG is an informative message.
 If not successful, returns a cons cell (nil . MSG), where MSG
 is an error message."
   (let* ((default-directory path)
-         (dst (or dst
-                  (file-name-sans-extension src)))
-         (tmp (expand-file-name src path))
-         (goal (expand-file-name dst path))
+         (src-base (file-name-sans-extension src))
+         (final (or dst src-base))
+         (final-abs (expand-file-name final path))
          (spec (format-spec (plist-get (cdr method) :uncompress-cmd)
                             `((?i . ,src)
-                              (?o . ,dst))))
+                              (?o . ,final))))
          (cmd (split-string spec))
-         code msg)
+         code msg tmp)
     (with-temp-buffer
       (setq code (apply #'process-file (car cmd) nil t nil
                         (cdr cmd)))
@@ -276,15 +275,17 @@ is an error message."
           (setq msg (format "xfer: %s (result:%d)" spec code))
         (setq msg (format "xfer: %s (result:%d) %s"
                           spec code (buffer-string)))))
-    (and (eq code 0)
+    (and dst
+         (not (string= src-base dst))
+         (eq code 0)
+         (setq tmp (expand-file-name src-base path))
          (file-exists-p tmp)
-         (not (string= tmp goal))
-         (rename-file tmp goal t)
+         (rename-file tmp final-abs t)
          (when xfer-debug
-           (message "xfer renamed %s to %s" tmp goal)))
+           (message "xfer renamed %s to %s" tmp final-abs)))
     (if (and (eq code 0)
-             (file-exists-p goal))
-        (cons goal msg)
+             (file-exists-p final-abs))
+        (cons final-abs msg)
       (cons nil msg))))
 
 (defun xfer-file-compressed-p (file)
