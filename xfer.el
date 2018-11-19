@@ -125,31 +125,33 @@ SRC-FULLNAME and DST-FULLNAME contain the full tramp paths, if any.
 If local, host strings should be nil."
   (let ((source (if src-host
                     (format "%s:%s" src-host
-                            (expand-file-name src-file src-dir))
+                            (concat src-dir src-file))
                   (expand-file-name src-file src-dir)))
         (source-home (if src-host
                          (let ((default-directory
-                                 (file-name-directory src-fullname)))
+                                 (file-name-directory src-fullname))
+                               (shell-file-name "sh"))
                            (xfer-homedir-find))
                        (xfer-homedir-find)))
         (destination (if dst-host
                          (format "%s:%s" dst-host
-                                 (expand-file-name dst-file dst-dir))
+                                 (concat dst-dir dst-file))
                        (expand-file-name dst-file dst-dir)))
         (dest-home (if dst-host
                        (let ((default-directory
-                               (file-name-directory dst-fullname)))
+                               (file-name-directory dst-fullname))
+                             (shell-file-name "sh"))
                          (xfer-homedir-find))
                      (xfer-homedir-find)))
         (tilde "~/")
         (spec "pscp -batch -p -q %s %d"))
     ;; unless paths are absolute, pscp assumes they are in the home dir
-    (setq source (replace-regexp-in-string tilde "" source))
     (setq source (replace-regexp-in-string (concat source-home "/")
                                            "" source))
-    (setq destination (replace-regexp-in-string tilde "" destination))
+    (setq source (replace-regexp-in-string tilde "" source))
     (setq destination (replace-regexp-in-string (concat dest-home "/")
                                                 "" destination))
+    (setq destination (replace-regexp-in-string tilde "" destination))
     (format-spec spec `((?s . ,source)
                         (?d . ,destination)))))
 
@@ -157,8 +159,7 @@ If local, host strings should be nil."
   "Find the value of the $HOME environment variable.
 Note that `getenv' always operates on the local host."
   (or (string-trim
-       (shell-command-to-string
-        (format "echo $HOME")))
+       (shell-command-to-string "echo $HOME"))
       (getenv "HOME")))
 
 (defun xfer-remote-executable-find (exe)
