@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-17 06:52:45 dharms>
+;; Modified Time-stamp: <2018-11-20 08:20:21 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -545,8 +545,8 @@ that forces a compression method by name, see
                             (delete-file destination)))
                       (when xfer-debug
                         (message "xfer %s error: %s" (car compress) (cdr result)))))
-                  (if (file-exists-p dst)
-                      (throw 'done (car scheme))))))
+                  (when (file-exists-p (expand-file-name dst-file dst-path))
+                    (throw 'done (car scheme))))))
             (throw 'done nil)))
     (if done
         (cons t (format "xfer transferred %s to %s (%s) in %.3f sec." src dst done
