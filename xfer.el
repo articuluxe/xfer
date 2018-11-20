@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-20 08:20:21 dharms>
+;; Modified Time-stamp: <2018-11-20 16:42:04 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -392,7 +392,7 @@ FORCE is a symbol that forces a compression scheme by name, see
                                  (car result) src-dir))
                    (file-exists-p zipped))
               (progn
-                (message "xfer compressed %s to %s via %s"
+                (message "xfer: %s ==> %s [%s]"
                          file zipped (car scheme))
                 zipped)
             (user-error "Xfer unable to compress %s" file)))
@@ -417,7 +417,7 @@ The uncompression scheme will be chosen based on extension."
           (setq result (xfer--uncompress-file path name scheme))
           (if (car result)
               (progn
-                (message "xfer uncompressed %s to %s via %s"
+                (message "xfer: %s ==> %s [%s]"
                          file (car result) (car scheme))
                 (car result))
             (user-error "Xfer unable to uncompress %s" file)))
@@ -546,11 +546,16 @@ that forces a compression method by name, see
                       (when xfer-debug
                         (message "xfer %s error: %s" (car compress) (cdr result)))))
                   (when (file-exists-p (expand-file-name dst-file dst-path))
-                    (throw 'done (car scheme))))))
+                    (throw 'done (cons (car scheme) (car compress)))))))
             (throw 'done nil)))
     (if done
-        (cons t (format "xfer transferred %s to %s (%s) in %.3f sec." src dst done
-                        (float-time (time-subtract (current-time) start))))
+        (let* ((how (if (eq (car done) 'standard) 'std (car done))))
+          (cons t (format "xfer: %s ==> %s [%s, %.3f sec.]"
+                          src dst
+                          (if (cdr done)
+                              (format "%s, %s" how (cdr done))
+                            how)
+                          (float-time (time-subtract (current-time) start)))))
       (cons nil (format "Unable to transfer %s to %s" src dst)))))
 
 (provide 'xfer)
