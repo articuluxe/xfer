@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-20 16:42:04 dharms>
+;; Modified Time-stamp: <2018-11-20 23:02:41 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -479,6 +479,8 @@ that forces a compression method by name, see
                         ((listp force)
                          force)
                         (t (list force))))
+         source-host source-dir source-file ;for remote hosts
+         dest-host dest-dir dest-file       ;for remote hosts
          scheme done)
     (unless (memq 'standard methods)
       (setq methods (append methods (list 'standard))))
@@ -501,8 +503,6 @@ that forces a compression method by name, see
                                       'both force-compress)))
                       (source (expand-file-name src-file src-path))
                       (destination (expand-file-name dst-file dst-path))
-                      source-host source-dir source-file
-                      dest-host dest-dir dest-file
                       result cmp-file)
                   (when compress
                     (setq result (xfer--compress-file src-path src-file
@@ -549,11 +549,21 @@ that forces a compression method by name, see
                     (throw 'done (cons (car scheme) (car compress)))))))
             (throw 'done nil)))
     (if done
-        (let* ((how (if (eq (car done) 'standard) 'std (car done))))
+        (let* ((how (if (eq (car done) 'standard) 'std (car done)))
+               (src (if src-remote
+                        (concat source-host ":" source-dir source-file)
+                      (abbreviate-file-name
+                       (expand-file-name src-file src-path))))
+               (dst (if dst-remote
+                        (concat dest-host ":" dest-dir dest-file)
+                      (if (file-in-directory-p dst-path src-path)
+                          (file-relative-name (expand-file-name dst-file dst-path)
+                                              src-path)
+                        (abbreviate-file-name (expand-file-name dst-file dst-path))))))
           (cons t (format "xfer: %s ==> %s [%s, %.3f sec.]"
                           src dst
                           (if (cdr done)
-                              (format "%s, %s" how (cdr done))
+                              (format "%s/%s" how (cdr done))
                             how)
                           (float-time (time-subtract (current-time) start)))))
       (cons nil (format "Unable to transfer %s to %s" src dst)))))
