@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-20 23:02:41 dharms>
+;; Modified Time-stamp: <2018-11-21 11:51:30 dan.harms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -128,21 +128,15 @@ If local, host strings should be nil."
                             (concat src-dir src-file))
                   (expand-file-name src-file src-dir)))
         (source-home (if src-host
-                         (let ((default-directory
-                                 (file-name-directory src-fullname))
-                               (shell-file-name "sh"))
-                           (xfer-homedir-find))
-                       (xfer-homedir-find)))
+                         (xfer--remote-homedir-find src-fullname)
+                       (getenv "HOME")))
         (destination (if dst-host
                          (format "%s:%s" dst-host
                                  (concat dst-dir dst-file))
                        (expand-file-name dst-file dst-dir)))
         (dest-home (if dst-host
-                       (let ((default-directory
-                               (file-name-directory dst-fullname))
-                             (shell-file-name "sh"))
-                         (xfer-homedir-find))
-                     (xfer-homedir-find)))
+                       (xfer--remote-homedir-find dst-fullname)
+                     (getenv "HOME")))
         (tilde "~/")
         (spec "pscp -batch -p -q %s %d"))
     ;; unless paths are absolute, pscp assumes they are in the home dir
@@ -155,12 +149,12 @@ If local, host strings should be nil."
     (format-spec spec `((?s . ,source)
                         (?d . ,destination)))))
 
-(defun xfer-homedir-find ()
-  "Find the value of the $HOME environment variable.
+(defun xfer--remote-homedir-find (file)
+  "Return `$HOME' on remote host of FILE, a full tramp path.
 Note that `getenv' always operates on the local host."
-  (or (string-trim
-       (shell-command-to-string "echo $HOME"))
-      (getenv "HOME")))
+  (let ((default-directory (file-name-directory file))
+        (shell-file-name "sh"))
+    (string-trim (shell-command-to-string "echo $HOME"))))
 
 (defun xfer-remote-executable-find (exe)
   "Try to find the binary associated with EXE on a remote host.
@@ -181,7 +175,7 @@ If PATH is not supplied, `default-directory' is used."
   "Return a shortened version of FILENAME for remote hosts."
   (let ((abbreviated-home-dir
          (format "\\`%s\\(/\\|\\'\\)"
-                 (xfer-homedir-find))))
+                 (xfer--remote-homedir-find filename))))
     (abbreviate-file-name filename)))
 
 (defun xfer--test-compression-methods (src-path dst-path scheme
@@ -516,22 +510,24 @@ that forces a compression method by name, see
                                  (car compress) source (cdr result)))
                       ;; but carry on
                       (setq compress nil)))
+                  ;; update tracking variables
+                  (if src-remote
+                      (with-parsed-tramp-file-name source var
+                        (setq source-host var-host)
+                        (setq source-dir (file-name-directory var-localname))
+                        (setq source-file (file-name-nondirectory var-localname)))
+                    (setq source-dir (file-name-directory source))
+                    (setq source-file (file-name-nondirectory source)))
+                  (if dst-remote
+                      (with-parsed-tramp-file-name destination var
+                        (setq dest-host var-host)
+                        (setq dest-dir (file-name-directory var-localname))
+                        (setq dest-file (file-name-nondirectory var-localname)))
+                    (setq dest-dir (file-name-directory destination))
+                    (setq dest-file (file-name-nondirectory destination)))
+                  ;; perform the transfer
                   (if (eq (car scheme) 'standard)
                       (copy-file source destination t t t t)
-                    (if src-remote
-                        (with-parsed-tramp-file-name source var
-                          (setq source-host var-host)
-                          (setq source-dir (file-name-directory var-localname))
-                          (setq source-file (file-name-nondirectory var-localname)))
-                      (setq source-dir (file-name-directory source))
-                      (setq source-file (file-name-nondirectory source)))
-                    (if dst-remote
-                        (with-parsed-tramp-file-name destination var
-                          (setq dest-host var-host)
-                          (setq dest-dir (file-name-directory var-localname))
-                          (setq dest-file (file-name-nondirectory var-localname)))
-                      (setq dest-dir (file-name-directory destination))
-                      (setq dest-file (file-name-nondirectory destination)))
                     (xfer--copy-file source source-host source-dir source-file
                                      destination dest-host dest-dir dest-file scheme))
                   (when compress
@@ -551,11 +547,21 @@ that forces a compression method by name, see
     (if done
         (let* ((how (if (eq (car done) 'standard) 'std (car done)))
                (src (if src-remote
-                        (concat source-host ":" source-dir source-file)
+                        (concat source-host ":"
+                                (replace-regexp-in-string
+                                 (xfer--remote-homedir-find
+                                  (expand-file-name src-file src-path))
+                                 "~" source-dir)
+                                src-file)
                       (abbreviate-file-name
                        (expand-file-name src-file src-path))))
                (dst (if dst-remote
-                        (concat dest-host ":" dest-dir dest-file)
+                        (concat dest-host ":"
+                                (replace-regexp-in-string
+                                 (xfer--remote-homedir-find
+                                  (expand-file-name dst-file dst-path))
+                                 "~" dest-dir)
+                                dst-file)
                       (if (file-in-directory-p dst-path src-path)
                           (file-relative-name (expand-file-name dst-file dst-path)
                                               src-path)
