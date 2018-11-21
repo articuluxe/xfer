@@ -49,8 +49,8 @@
      :compress-exe "gzip"
      :uncompress-exe "gunzip"
      :extensions ("gz")
-     :compress-cmd "gzip -fk9 %i"
-     :uncompress-cmd "gunzip -fk9 %i"
+     :compress-cmd "gzip -f9 %i"
+     :uncompress-cmd "gunzip -f9 %i"
      )
     (zip
      :compress-exe "zip"
