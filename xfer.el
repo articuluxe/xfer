@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-21 11:51:30 dan.harms>
+;; Modified Time-stamp: <2018-11-26 08:44:57 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -245,8 +245,8 @@ is an error message."
       (setq code (apply #'process-file (car cmd) nil t nil
                         (cdr cmd)))
       (if (eq code 0)
-          (setq msg (format "xfer: %s (result:%d)" spec code))
-        (setq msg (format "xfer: %s (result:%d) %s"
+          (setq msg (format "%s (result:%d)" spec code))
+        (setq msg (format "%s (result:%d) %s"
                           spec code (buffer-string)))))
     (if (and (eq code 0)
              (file-exists-p output))
@@ -274,8 +274,8 @@ is an error message."
       (setq code (apply #'process-file (car cmd) nil t nil
                         (cdr cmd)))
       (if (eq code 0)
-          (setq msg (format "xfer: %s (result:%d)" spec code))
-        (setq msg (format "xfer: %s (result:%d) %s"
+          (setq msg (format "%s (result:%d)" spec code))
+        (setq msg (format "%s (result:%d) %s"
                           spec code (buffer-string)))))
     (and dst
          (not (string= src-base dst))
@@ -332,6 +332,7 @@ remote.  SCHEME is the transfer scheme, see
   (and (not (xfer-file-compressed-p file))
        ;; never compress on same host
        (if src (if dst (not (string= src dst)) t) dst)))
+;; TODO take into account file size
 
 (defun xfer--copy-file (src-fullname src-host src-dir src-file
                                      dst-fullname dst-host
@@ -352,8 +353,8 @@ or an error message, respectively."
       (setq code (apply #'process-file (car cmd) nil t nil
                         (cdr cmd)))
       (if (eq code 0)
-          (setq msg (format "xfer: %s (result:%d)" spec code))
-        (setq msg  (format "xfer: %s (result:%d) %s"
+          (setq msg (format "%s (result:%d)" spec code))
+        (setq msg  (format "%s (result:%d) %s"
                            spec code (buffer-string)))))
     (cons (eq code 0) msg)))
 
@@ -509,7 +510,9 @@ that forces a compression method by name, see
                         (message "xfer: %s compression failed for %s: %s"
                                  (car compress) source (cdr result)))
                       ;; but carry on
-                      (setq compress nil)))
+                      (setq compress nil)
+                      ;; TODO if compression was destructive, replenish src file
+                      ))
                   ;; update tracking variables
                   (if src-remote
                       (with-parsed-tramp-file-name source var
@@ -563,8 +566,9 @@ that forces a compression method by name, see
                                  "~" dest-dir)
                                 dst-file)
                       (if (file-in-directory-p dst-path src-path)
-                          (file-relative-name (expand-file-name dst-file dst-path)
-                                              src-path)
+                          (concat "./"
+                                  (file-relative-name (expand-file-name dst-file dst-path)
+                                                      src-path))
                         (abbreviate-file-name (expand-file-name dst-file dst-path))))))
           (cons t (format "xfer: %s ==> %s [%s, %.3f sec.]"
                           src dst
