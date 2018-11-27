@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-26 08:44:57 dharms>
+;; Modified Time-stamp: <2018-11-27 17:37:09 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -44,22 +44,26 @@
 
 ;; compression
 (defvar xfer-compression-schemes
-  '(
-    (gzip
-     :compress-exe "gzip"
-     :uncompress-exe "gunzip"
-     :extensions ("gz")
-     :compress-cmd "gzip -f9 %i"
-     :uncompress-cmd "gunzip -f9 %i"
-     )
-    (zip
+  '((zip
      :compress-exe "zip"
      :uncompress-exe "unzip"
      :extensions ("zip")
      :compress-cmd "zip %o -r --filesync %i"
      :uncompress-cmd "unzip -jobq %i"
-     )
-    )
+     :compress-versions ("zip --version" .
+                         (("This is Zip \\([^ ]+\\)" . t)))
+     :uncompress-versions ("unzip -v" .
+                           (("UnZip \\([^ ]+\\) of" . t))))
+    (gzip
+     :compress-exe "gzip"
+     :uncompress-exe "gunzip"
+     :extensions ("gz")
+     :compress-cmd "gzip -fk9 %i"
+     :uncompress-cmd "gunzip -fk9 %i"
+     :compress-versions ("gzip --version" .
+                         (("Apple gzip \\([^ ]+\\)" . t)))
+     :uncompress-versions ("gunzip --version" .
+                           (("Apple gzip \\([^ ]+\\)" . t)))))
   "Compression scheme definitions.")
 
 (defvar xfer-compression-extensions
@@ -164,8 +168,9 @@ Note that `executable-find' always operates on the local host."
 (defun xfer-find-executable (exe &optional path)
   "Search for executable EXE given directory PATH.
 If PATH is not supplied, `default-directory' is used."
-  (let* ((default-directory (or (file-name-directory path)
-                                default-directory))
+  (let* ((default-directory (if path
+                                (file-name-directory path)
+                              default-directory))
          (func (if (file-remote-p default-directory)
                    #'xfer-remote-executable-find
                  #'executable-find)))
@@ -178,8 +183,27 @@ If PATH is not supplied, `default-directory' is used."
                  (xfer--remote-homedir-find filename))))
     (abbreviate-file-name filename)))
 
-(defun xfer--test-compression-methods (src-path dst-path scheme
-                                                &optional type force)
+(defun xfer--exe-version (exe regex)
+  "Find version of EXE given REGEX.
+EXE is a full command, including version parameter.
+The first capture group should be the executable's version number."
+  (let* ((str (string-trim (shell-command-to-string exe))))
+    (when (string-match regex str)
+      (match-string-no-properties 1 str))))
+
+(defun xfer--test-exe-version (exe regex version &optional path)
+  "Test EXE is at least VERSION according to REGEX at PATH."
+  (let* ((default-directory (if path
+                                (file-name-directory path)
+                              default-directory))
+         (curr (xfer--exe-version exe regex)))
+    (and curr
+         (cond ((stringp version)
+                (not (version< curr version)))
+               ((eq version 't) t)))))
+
+(defun xfer--test-compression-method (src-path dst-path scheme
+                                               &optional type force)
   "Test SRC-PATH and DST-PATH for compression method SCHEME.
 SRC-PATH is minimally the directory of the file in question, but
 may also be a compressed filename in case that type is
@@ -189,22 +213,48 @@ telling which methods to search for.  SCHEME is a plist, see
 specifies a compression method by name."
   (let ((method (car scheme))
         (compress (plist-get (cdr scheme) :compress-exe))
-        (uncompress (plist-get (cdr scheme) :uncompress-exe)))
+        (uncompress (plist-get (cdr scheme) :uncompress-exe))
+        (version-compress (plist-get (cdr scheme) :compress-versions))
+        (version-uncompress (plist-get (cdr scheme) :uncompress-versions)))
     (cond ((or (not type) (eq type 'both))
            (and
             (or (not force) (eq force method))
             (xfer-find-executable compress src-path)
-            (xfer-find-executable uncompress dst-path)))
+            (or (not version-compress)
+                (seq-find (lambda (ver)
+                            (xfer--test-exe-version
+                             (car version-compress)
+                             (car ver) (cdr ver) src-path))
+                          (cdr version-compress)))
+            (xfer-find-executable uncompress dst-path)
+            (or (not version-uncompress)
+                (seq-find (lambda (ver)
+                            (xfer--test-exe-version
+                             (car version-uncompress)
+                             (car ver) (cdr ver) dst-path))
+                          (cdr version-uncompress)))))
           ((eq type 'compress)
            (and
             (or (not force) (eq force method))
-            (xfer-find-executable compress src-path)))
+            (xfer-find-executable compress src-path)
+            (or (not version-compress)
+                (seq-find (lambda (ver)
+                            (xfer--test-exe-version
+                             (car version-compress)
+                             (car ver) (cdr ver) src-path))
+                          (cdr version-compress)))))
           ((eq type 'uncompress)
            (and
             (or (not force) (eq force method))
-            (xfer-find-executable uncompress dst-path)
             (member (file-name-extension src-path)
-                    (plist-get (cdr scheme) :extensions)))))))
+                    (plist-get (cdr scheme) :extensions))
+            (xfer-find-executable uncompress dst-path)
+            (or (not version-uncompress)
+                (seq-find (lambda (ver)
+                            (xfer--test-exe-version
+                             (car version-uncompress)
+                             (car ver) (cdr ver) dst-path))
+                          (cdr version-uncompress))))))))
 
 (defun xfer--find-compression-method (rules src &optional dest type force)
   "Return a valid compression method among RULES to use for SRC and DEST.
@@ -216,12 +266,12 @@ searched for."
   (let* ((dest (or dest src))
          (type (or type 'both))
          (method (seq-find (lambda (element)
-                             (xfer--test-compression-methods
+                             (xfer--test-compression-method
                               src dest element type force))
                            rules)))
     (when (and force (not method))      ;didn't find the override
       (setq method (seq-find (lambda (element)
-                               (xfer--test-compression-methods
+                               (xfer--test-compression-method
                                 src dest element type))
                              rules)))
     method))
