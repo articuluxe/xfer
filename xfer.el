@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-12-04 16:41:19 dan.harms>
+;; Modified Time-stamp: <2018-12-04 17:00:34 dan.harms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -51,9 +51,9 @@
      :compress-cmd "zip %o -r --filesync %i"
      :uncompress-cmd "unzip -jobq %i"
      :compress-versions ("zip --version" .
-                         (("This is Zip \\([^ ]+\\)" . t)))
+                         (("This is Zip \\([[:digit:].]+\\)" . t)))
      :uncompress-versions ("unzip -v" .
-                           (("UnZip \\([^ ]+\\) of" . t))))
+                           (("UnZip \\([[:digit:].]+\\) of" . t))))
     (gzip
      :compress-exe "gzip"
      :uncompress-exe "gunzip"
@@ -61,9 +61,13 @@
      :compress-cmd "gzip -fk9 %i"
      :uncompress-cmd "gunzip -fk9 %i"
      :compress-versions ("gzip --version" .
-                         (("Apple gzip \\([^ ]+\\)" . t)))
+                         (("Apple gzip \\([[:digit:].]+\\)" . t)
+                          ("gzip \\([[:digit:].]+\\)" . "1.8")
+                          ))
      :uncompress-versions ("gunzip --version" .
-                           (("Apple gzip \\([^ ]+\\)" . t)))))
+                           (("Apple gzip \\([[:digit:].]+\\)" . t)
+                            ("gunzip (gzip) \\([[:digit:].]+\\)" . "1.8")
+                            ))))
   "Compression scheme definitions.")
 
 (defvar xfer-compression-extensions
