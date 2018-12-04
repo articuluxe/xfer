@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-27 17:37:09 dharms>
+;; Modified Time-stamp: <2018-12-04 16:41:19 dan.harms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -92,18 +92,24 @@
 (if (eq (window-system) 'w32)
     (add-to-list 'xfer-transfer-schemes 'pscp))
 
-(defun xfer--scp (src-fullname src-host src-dir src-file
-                               dst-fullname dst-host dst-dir
+(defun xfer--scp (src-fullname src-host src-user src-dir src-file
+                               dst-fullname dst-host dst-user dst-dir
                                dst-file)
-  "Return an scp command to copy SRC-FILE in SRC-DIR on SRC-HOST.
-The destination will be DST-FILE in DST-DIR on DST-HOST.
+  "Return an scp command to copy SRC-FILE in SRC-DIR on SRC-HOST as SRC-USER.
+The destination will be DST-FILE in DST-DIR on DST-HOST as DST-USER.
 SRC-FULLNAME and DST-FULLNAME contain the full tramp paths, if any."
   (let ((source (if src-host
-                    (format "%s:%s" src-host
+                    (format "%s:%s"
+                            (if (and src-user (not (string-empty-p src-user)))
+                                (format "%s@%s" src-user src-host)
+                              src-host)
                             (expand-file-name src-file src-dir))
                   (expand-file-name src-file src-dir)))
         (destination (if dst-host
-                         (format "%s:%s" dst-host
+                         (format "%s:%s"
+                                 (if (and dst-user (not (string-empty-p dst-user)))
+                                     (format "%s@%s" dst-user dst-host)
+                                   dst-host)
                                  (expand-file-name dst-file dst-dir))
                        (expand-file-name dst-file dst-dir)))
         (spec "scp -p -q %s %d"))
@@ -120,22 +126,28 @@ SRC-FULLNAME and DST-FULLNAME contain the full tramp paths, if any."
           t)
       dst-host)))
 
-(defun xfer--pscp (src-fullname src-host src-dir src-file
-                                dst-fullname dst-host dst-dir
-                                dst-file)
-  "Return a pscp command to copy SRC-FILE in SRC-DIR on SRC-HOST.
-The destination will be DST-FILE in DST-DIR on DST-HOST.
+(defun xfer--pscp (src-fullname src-host src-user src-dir src-file
+                                dst-fullname dst-host dst-user
+                                dst-dir dst-file)
+  "Return a pscp command to copy SRC-FILE in SRC-DIR on SRC-HOST as SRC-USER.
+The destination will be DST-FILE in DST-DIR on DST-HOST as DST-USER.
 SRC-FULLNAME and DST-FULLNAME contain the full tramp paths, if any.
 If local, host strings should be nil."
   (let ((source (if src-host
-                    (format "%s:%s" src-host
+                    (format "%s:%s"
+                            (if (and src-user (not (string-empty-p src-user)))
+                                (format "%s@%s" src-user src-host)
+                              src-host)
                             (concat src-dir src-file))
                   (expand-file-name src-file src-dir)))
         (source-home (if src-host
                          (xfer--remote-homedir-find src-fullname)
                        (getenv "HOME")))
         (destination (if dst-host
-                         (format "%s:%s" dst-host
+                         (format "%s:%s"
+                                 (if (and dst-user (not (string-empty-p dst-user)))
+                                     (format "%s@%s" dst-user dst-host)
+                                   dst-host)
                                  (concat dst-dir dst-file))
                        (expand-file-name dst-file dst-dir)))
         (dest-home (if dst-host
@@ -384,8 +396,8 @@ remote.  SCHEME is the transfer scheme, see
        (if src (if dst (not (string= src dst)) t) dst)))
 ;; TODO take into account file size
 
-(defun xfer--copy-file (src-fullname src-host src-dir src-file
-                                     dst-fullname dst-host
+(defun xfer--copy-file (src-fullname src-host src-user src-dir src-file
+                                     dst-fullname dst-host dst-user
                                      dst-dir dst-file scheme)
   "Copy SRC-FILE in SRC-DIR on SRC-HOST to DST-FILE in DST-DIR on DST-HOST.
 SRC-FULLNAME and DST-FULLNAME contain the full tramp path, if any.
@@ -395,8 +407,9 @@ or nil on failure, and MSG is either an informative message,
 or an error message, respectively."
   (let* ((method (cdr scheme))
          (func (plist-get method :cmd))
-         (spec (funcall func src-fullname src-host src-dir src-file
-                        dst-fullname dst-host dst-dir dst-file))
+         (spec (funcall func src-fullname src-host src-user src-dir
+                        src-file dst-fullname dst-host dst-user
+                        dst-dir dst-file))
          (cmd (split-string spec))
          code msg)
     (with-temp-buffer
@@ -524,8 +537,8 @@ that forces a compression method by name, see
                         ((listp force)
                          force)
                         (t (list force))))
-         source-host source-dir source-file ;for remote hosts
-         dest-host dest-dir dest-file       ;for remote hosts
+         source-host source-user source-dir source-file ;for remote hosts
+         dest-host dest-user dest-dir dest-file         ;for remote hosts
          scheme done)
     (unless (memq 'standard methods)
       (setq methods (append methods (list 'standard))))
@@ -567,6 +580,7 @@ that forces a compression method by name, see
                   (if src-remote
                       (with-parsed-tramp-file-name source var
                         (setq source-host var-host)
+                        (setq source-user (substring-no-properties var-user))
                         (setq source-dir (file-name-directory var-localname))
                         (setq source-file (file-name-nondirectory var-localname)))
                     (setq source-dir (file-name-directory source))
@@ -574,6 +588,7 @@ that forces a compression method by name, see
                   (if dst-remote
                       (with-parsed-tramp-file-name destination var
                         (setq dest-host var-host)
+                        (setq dest-user (substring-no-properties var-user))
                         (setq dest-dir (file-name-directory var-localname))
                         (setq dest-file (file-name-nondirectory var-localname)))
                     (setq dest-dir (file-name-directory destination))
@@ -581,8 +596,9 @@ that forces a compression method by name, see
                   ;; perform the transfer
                   (if (eq (car scheme) 'standard)
                       (copy-file source destination t t t t)
-                    (xfer--copy-file source source-host source-dir source-file
-                                     destination dest-host dest-dir dest-file scheme))
+                    (xfer--copy-file source source-host source-user source-dir source-file
+                                     destination dest-host dest-user dest-dir dest-file
+                                     scheme))
                   (when compress
                     (setq result (xfer--uncompress-file dst-path cmp-file compress
                                                         dst-file))
@@ -600,20 +616,32 @@ that forces a compression method by name, see
     (if done
         (let* ((how (if (eq (car done) 'standard) 'std (car done)))
                (src (if src-remote
-                        (concat source-host ":"
-                                (replace-regexp-in-string
-                                 (xfer--remote-homedir-find
-                                  (expand-file-name src-file src-path))
-                                 "~" source-dir)
-                                src-file)
+                        (concat
+                         (if (and source-user
+                                  (not (string-empty-p source-user))
+                                  (not (string= source-user user-login-name)))
+                             (concat source-user "@" source-host)
+                           source-host)
+                         ":"
+                         (replace-regexp-in-string
+                          (xfer--remote-homedir-find
+                           (expand-file-name src-file src-path))
+                          "~" source-dir)
+                         src-file)
                       (abbreviate-file-name
                        (expand-file-name src-file src-path))))
                (dst (if dst-remote
-                        (concat dest-host ":"
-                                (replace-regexp-in-string
-                                 (xfer--remote-homedir-find
-                                  (expand-file-name dst-file dst-path))
-                                 "~" dest-dir)
+                        (concat
+                         (if (and dest-user
+                                  (not (string-empty-p dest-user))
+                                  (not (string= dest-user user-login-name)))
+                             (concat dest-user "@" dest-host)
+                           dest-host)
+                         ":"
+                         (replace-regexp-in-string
+                          (xfer--remote-homedir-find
+                           (expand-file-name dst-file dst-path))
+                          "~" dest-dir)
                                 dst-file)
                       (if (file-in-directory-p dst-path src-path)
                           (concat "./"
