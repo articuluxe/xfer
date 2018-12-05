@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-12-04 17:00:34 dan.harms>
+;; Modified Time-stamp: <2018-12-05 09:00:38 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -500,7 +500,9 @@ that forces a compression method by name, see
         (setq inhibit-message t)
         ,(async-inject-variables "load-path")
         (require 'xfer)
-        (xfer--transfer-file ,src ,dst ,force ,force-compress))
+        (xfer--transfer-file ,src ,dst
+                             (quote ,force)
+                             (quote ,force-compress)))
      `(lambda (result)
         (if (car result)
             (prog1 t
