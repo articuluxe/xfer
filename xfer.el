@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-12-05 09:00:38 dharms>
+;; Modified Time-stamp: <2018-12-10 16:56:22 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -485,6 +485,14 @@ The uncompression scheme will be chosen based on extension."
             (user-error "Xfer unable to uncompress %s" file)))
       (user-error "Xfer unable to find uncompression method for %s" file))))
 
+(defun xfer-transfer-print-msg (result)
+  "Print an informative message RESULT.
+RESULT is a cons cell (success . message)."
+  (if (car result)
+      (prog1 t
+        (message (cdr result)))
+    (user-error "%s" (cdr result))))
+
 (defun xfer-transfer-file-async (src dst &optional force force-compress)
   "Transfer SRC to DST asynchronously.
 Optional FORCE is an atom, or a list of atoms that are tried in
@@ -493,8 +501,7 @@ order, specifying the transfer method by name, see
 that forces a compression method by name, see
 `xfer-compression-schemes'."
   (interactive "fSource file: \nGDestination: \nsMethod: \nsCompress: ")
-  (let ((start (current-time))
-        msg)
+  (let ((start (current-time)))
     (async-start
      `(lambda ()
         (setq inhibit-message t)
@@ -503,11 +510,7 @@ that forces a compression method by name, see
         (xfer--transfer-file ,src ,dst
                              (quote ,force)
                              (quote ,force-compress)))
-     `(lambda (result)
-        (if (car result)
-            (prog1 t
-              (message (cdr result)))
-          (user-error "%s" (cdr result)))))))
+     #'xfer-transfer-print-msg)))
 
 (defun xfer-transfer-file (src dst &optional force force-compress)
   "Transfer SRC to DST.
