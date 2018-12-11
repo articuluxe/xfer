@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-12-10 16:56:22 dharms>
+;; Modified Time-stamp: <2018-12-10 21:19:28 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -493,15 +493,23 @@ RESULT is a cons cell (success . message)."
         (message (cdr result)))
     (user-error "%s" (cdr result))))
 
-(defun xfer-transfer-file-async (src dst &optional force force-compress)
+(defun xfer-transfer-file-async (src dst &optional force
+                                     force-compress completion)
   "Transfer SRC to DST asynchronously.
 Optional FORCE is an atom, or a list of atoms that are tried in
 order, specifying the transfer method by name, see
 `xfer-transfer-schemes'.  Optional FORCE-COMPRESS is a symbol
 that forces a compression method by name, see
-`xfer-compression-schemes'."
+`xfer-compression-schemes'.  Optional COMPLETION is a completion
+handler, which defaults to `xfer-transfer-print-msg'.  If
+COMPLETION is the symbol 'future then a future is returned, which
+is the result of calling `async-start' without a completion
+function, and can be accessed using `async-read' and `async-get'."
   (interactive "fSource file: \nGDestination: \nsMethod: \nsCompress: ")
-  (let ((start (current-time)))
+  (let ((start (current-time))
+        (finish (cond ((eq completion 'future) nil)
+                      ((not completion) #'xfer-transfer-print-msg)
+                      (t completion))))
     (async-start
      `(lambda ()
         (setq inhibit-message t)
@@ -510,7 +518,7 @@ that forces a compression method by name, see
         (xfer--transfer-file ,src ,dst
                              (quote ,force)
                              (quote ,force-compress)))
-     #'xfer-transfer-print-msg)))
+     finish)))
 
 (defun xfer-transfer-file (src dst &optional force force-compress)
   "Transfer SRC to DST.
