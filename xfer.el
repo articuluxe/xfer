@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-12-12 15:57:11 dan.harms>
+;; Modified Time-stamp: <2018-12-12 15:59:47 dan.harms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -515,7 +515,7 @@ function, and can be accessed using `async-read' and `async-get'."
         (setq inhibit-message t)
         ,(async-inject-variables "load-path")
         (require 'xfer)
-        (xfer-transfer-file-no-msg ,src ,dst
+        (xfer-transfer-file-silent ,src ,dst
                                    (quote ,force)
                                    (quote ,force-compress)))
      finish)))
@@ -529,14 +529,14 @@ order, specifying the transfer method by name, see
 that forces a compression method by name, see
 `xfer-compression-schemes', or 'none to inhibit compression."
   (interactive "fSource file: \nGDestination: \nsMethod: \nsCompress: ")
-  (let ((result (xfer-transfer-file-no-msg src dst force force-compress)))
+  (let ((result (xfer-transfer-file-silent src dst force force-compress)))
     (if (car result)
         (prog1 t
           (message (cdr result)))
       (user-error "%s" (cdr result)))))
 
 ;;;###autoload
-(defun xfer-transfer-file-no-msg (src dst &optional force force-compress)
+(defun xfer-transfer-file-silent (src dst &optional force force-compress)
   "Transfer SRC to DST.
 Optional FORCE is an atom, or a list of atoms that are tried in
 order, specifying the transfer method by name, see
