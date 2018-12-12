@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-12-10 21:19:28 dharms>
+;; Modified Time-stamp: <2018-12-12 15:57:11 dan.harms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -493,6 +493,7 @@ RESULT is a cons cell (success . message)."
         (message (cdr result)))
     (user-error "%s" (cdr result))))
 
+;;;###autoload
 (defun xfer-transfer-file-async (src dst &optional force
                                      force-compress completion)
   "Transfer SRC to DST asynchronously.
@@ -506,8 +507,7 @@ COMPLETION is the symbol 'future then a future is returned, which
 is the result of calling `async-start' without a completion
 function, and can be accessed using `async-read' and `async-get'."
   (interactive "fSource file: \nGDestination: \nsMethod: \nsCompress: ")
-  (let ((start (current-time))
-        (finish (cond ((eq completion 'future) nil)
+  (let ((finish (cond ((eq completion 'future) nil)
                       ((not completion) #'xfer-transfer-print-msg)
                       (t completion))))
     (async-start
@@ -515,11 +515,12 @@ function, and can be accessed using `async-read' and `async-get'."
         (setq inhibit-message t)
         ,(async-inject-variables "load-path")
         (require 'xfer)
-        (xfer--transfer-file ,src ,dst
-                             (quote ,force)
-                             (quote ,force-compress)))
+        (xfer-transfer-file-no-msg ,src ,dst
+                                   (quote ,force)
+                                   (quote ,force-compress)))
      finish)))
 
+;;;###autoload
 (defun xfer-transfer-file (src dst &optional force force-compress)
   "Transfer SRC to DST.
 Optional FORCE is an atom, or a list of atoms that are tried in
@@ -528,13 +529,14 @@ order, specifying the transfer method by name, see
 that forces a compression method by name, see
 `xfer-compression-schemes', or 'none to inhibit compression."
   (interactive "fSource file: \nGDestination: \nsMethod: \nsCompress: ")
-  (let ((result (xfer--transfer-file src dst force force-compress)))
+  (let ((result (xfer-transfer-file-no-msg src dst force force-compress)))
     (if (car result)
         (prog1 t
           (message (cdr result)))
       (user-error "%s" (cdr result)))))
 
-(defun xfer--transfer-file (src dst &optional force force-compress)
+;;;###autoload
+(defun xfer-transfer-file-no-msg (src dst &optional force force-compress)
   "Transfer SRC to DST.
 Optional FORCE is an atom, or a list of atoms that are tried in
 order, specifying the transfer method by name, see
@@ -659,7 +661,7 @@ that forces a compression method by name, see
                           (xfer--remote-homedir-find
                            (expand-file-name dst-file dst-path))
                           "~" dest-dir)
-                                dst-file)
+                         dst-file)
                       (if (file-in-directory-p dst-path src-path)
                           (concat "./"
                                   (file-relative-name (expand-file-name dst-file dst-path)
