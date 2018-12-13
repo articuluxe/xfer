@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-12-13 09:44:54 dan.harms>
+;; Modified Time-stamp: <2018-12-13 10:41:49 dan.harms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -513,7 +513,7 @@ function, and can be accessed using `async-read' and `async-get'."
     (async-start
      `(lambda ()
         (setq inhibit-message t)
-        ,(async-inject-variables "load-path")
+        ,(async-inject-variables "load-path\\|xfer-.+-schemes")
         (require 'xfer)
         (xfer-transfer-file-silent ,src ,dst
                                    (quote ,force)
