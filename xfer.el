@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-12-12 15:59:47 dan.harms>
+;; Modified Time-stamp: <2018-12-13 09:44:54 dan.harms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -614,7 +614,8 @@ that forces a compression method by name, see
                     (setq dest-file (file-name-nondirectory destination)))
                   ;; perform the transfer
                   (if (eq (car scheme) 'standard)
-                      (copy-file source destination t t t t)
+                      (let ((large-file-warning-threshold nil))
+                        (copy-file source destination t t t t))
                     (xfer--copy-file source source-host source-user source-dir source-file
                                      destination dest-host dest-user dest-dir dest-file
                                      scheme))
