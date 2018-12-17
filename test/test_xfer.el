@@ -5,7 +5,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-10 11:35:30 dharms>
+;; Modified Time-stamp: <2018-12-18 06:34:25 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -78,6 +78,42 @@
     (should result)
     (should (file-exists-p result))
     (should (string= (file-name-extension result) "gz"))
+    (setq result (xfer-uncompress-file result))
+    (should (file-exists-p result))
+    (should (string= (file-name-nondirectory result)
+                     file))
+    (delete-directory stage t)
+    )
+  (let* ((base (file-name-directory load-file-name))
+         (stage (concat base "stage/"))
+         (file "test_xfer.el")
+         (src (concat base file))
+         result)
+    (delete-directory stage t)
+    (make-directory stage t)
+    (copy-file src stage)
+    (should-error
+     (xfer-compress-file (concat stage file) nil 'missing)
+     :type 'user-error)
+    (delete-directory stage t)
+    )
+  (let* ((base (file-name-directory load-file-name))
+         (stage (concat base "stage/"))
+         (file "test_xfer.el")
+         (src (concat base file))
+         result)
+    (delete-directory stage t)
+    (make-directory stage t)
+    (copy-file src stage)
+    (setq result
+          (xfer-compress-file (concat stage file) nil '(missing t)))
+    (should-error
+     (xfer-compress-file result nil 'gzip)
+     :type 'user-error)
+    (should result)
+    (should (file-exists-p result))
+    (should (or (string= (file-name-extension result) "gz")
+                (string= (file-name-extension result) "zip")))
     (setq result (xfer-uncompress-file result))
     (should (file-exists-p result))
     (should (string= (file-name-nondirectory result)

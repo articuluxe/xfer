@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-12-13 10:41:49 dan.harms>
+;; Modified Time-stamp: <2018-12-18 06:35:13 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -43,7 +43,7 @@
   :type 'boolean)
 
 ;; compression
-(defvar xfer-compression-schemes
+(defvar xfer-compression-scheme-alist
   '((zip
      :compress-exe "zip"
      :uncompress-exe "unzip"
@@ -69,6 +69,9 @@
                             ("gunzip (gzip) \\([[:digit:].]+\\)" . "1.8")
                             ))))
   "Compression scheme definitions.")
+
+(defvar xfer-compression-schemes '(zip gzip)
+  "List of compression schemes to try, in order.")
 
 (defvar xfer-compression-extensions
   '("zip" "gz" "gzip" "rar")
@@ -225,7 +228,7 @@ SRC-PATH is minimally the directory of the file in question, but
 may also be a compressed filename in case that type is
 'uncompress.  TYPE is a symbol in (compress, uncompress, both)
 telling which methods to search for.  SCHEME is a plist, see
-`xfer-compression-schemes'.  Optional FORCE is a symbol that
+`xfer-compression-scheme-alist'.  Optional FORCE is a symbol that
 specifies a compression method by name."
   (let ((method (car scheme))
         (compress (plist-get (cdr scheme) :compress-exe))
@@ -281,20 +284,31 @@ compression method by name.  If FORCE is not found, a fallback is
 searched for."
   (let* ((dest (or dest src))
          (type (or type 'both))
-         (method (seq-find (lambda (element)
-                             (xfer--test-compression-method
-                              src dest element type force))
-                           rules)))
-    (when (and force (not method))      ;didn't find the override
-      (setq method (seq-find (lambda (element)
-                               (xfer--test-compression-method
-                                src dest element type))
-                             rules)))
-    method))
+         (schemes (cond ((not force) xfer-compression-schemes)
+                        ((eq force t) xfer-compression-schemes)
+                        ((listp force) force)
+                        (t (list force))))
+         method)
+    (catch 'found
+      (dolist (scheme schemes)
+        (and
+         (setq method (assq scheme rules))
+         (xfer--test-compression-method src dest method type scheme)
+         (throw 'found method)))
+      ;; didn't find any explicitly specified schemes;
+      ;; if the fallback is present (t), search for anything
+      (and (not method)
+         (memq t schemes)
+         (setq method
+               (seq-find (lambda (elt)
+                           (xfer--test-compression-method
+                            src dest elt type))
+                         rules)))
+      (throw 'found method))))
 
 (defun xfer--compress-file (path src dst method)
   "At PATH, compress SRC into DST using METHOD.
-METHOD's format is a plist according to `xfer-compression-schemes'.
+METHOD's format is a plist according to `xfer-compression-scheme-alist'.
 If successful, returns a cons cell (FILE . MSG), where FILE is the
 compressed file name, and MSG is an informative message.
 If not successful, returns a cons cell (nil . MSG), where MSG
@@ -322,7 +336,7 @@ is an error message."
 (defun xfer--uncompress-file (path src method &optional dst)
   "At PATH, uncompress SRC to DST using METHOD.
 DST, if not supplied, defaults to SRC sans extension.
-METHOD's format is a plist according to `xfer-compression-schemes'.
+METHOD's format is a plist according to `xfer-compression-scheme-alist'.
 If successful, returns a cons cell (FILE . MSG), where FILE is the
 uncompressed file name, and MSG is an informative message.
 If not successful, returns a cons cell (nil . MSG), where MSG
@@ -386,8 +400,7 @@ Optional FORCE is a symbol that forces a scheme by name."
   (let ((method (seq-find (lambda (elt)
                             (xfer--test-scheme src dst elt force))
                           schemes)))
-    ;; unlike compression schemes (which fallback if needed), for transfer
-    ;; schemes if an override is provided but not found, we return nil
+    ;; return nil if an override is provided but not found
     method))
 
 (defun xfer--should-compress (file src dst scheme)
@@ -437,7 +450,7 @@ FORCE is a symbol that forces a compression scheme by name, see
   (let* ((src-dir (file-name-directory file))
          (src-file (file-name-nondirectory file))
          (scheme (xfer--find-compression-method
-                  xfer-compression-schemes
+                  xfer-compression-scheme-alist
                   src-dir
                   (or dest src-dir)
                   (if dest 'both 'compress)
@@ -467,7 +480,7 @@ The uncompression scheme will be chosen based on extension."
   (let* ((path (file-name-directory file))
          (name (file-name-nondirectory file))
          (scheme (xfer--find-compression-method
-                  xfer-compression-schemes
+                  xfer-compression-scheme-alist
                   file                  ;use file here for extension
                   path
                   'uncompress))
@@ -501,7 +514,7 @@ Optional FORCE is an atom, or a list of atoms that are tried in
 order, specifying the transfer method by name, see
 `xfer-transfer-schemes'.  Optional FORCE-COMPRESS is a symbol
 that forces a compression method by name, see
-`xfer-compression-schemes'.  Optional COMPLETION is a completion
+`xfer-compression-scheme-alist'.  Optional COMPLETION is a completion
 handler, which defaults to `xfer-transfer-print-msg'.  If
 COMPLETION is the symbol 'future then a future is returned, which
 is the result of calling `async-start' without a completion
@@ -527,7 +540,7 @@ Optional FORCE is an atom, or a list of atoms that are tried in
 order, specifying the transfer method by name, see
 `xfer-transfer-schemes'.  Optional FORCE-COMPRESS is a symbol
 that forces a compression method by name, see
-`xfer-compression-schemes', or 'none to inhibit compression."
+`xfer-compression-scheme-alist', or 'none to inhibit compression."
   (interactive "fSource file: \nGDestination: \nsMethod: \nsCompress: ")
   (let ((result (xfer-transfer-file-silent src dst force force-compress)))
     (if (car result)
@@ -542,7 +555,7 @@ Optional FORCE is an atom, or a list of atoms that are tried in
 order, specifying the transfer method by name, see
 `xfer-transfer-schemes'.  Optional FORCE-COMPRESS is a symbol
 that forces a compression method by name, see
-`xfer-compression-schemes', or 'none to inhibit compression."
+`xfer-compression-scheme-alist', or 'none to inhibit compression."
   (interactive "fSource file: \nGDestination: \nsMethod: \nsCompress: ")
   (let* ((src-path (file-name-directory src))
          (src-file (file-name-nondirectory src))
@@ -576,7 +589,7 @@ that forces a compression method by name, see
                                      (xfer--should-compress src-file src-remote
                                                             dst-remote scheme)
                                      (xfer--find-compression-method
-                                      xfer-compression-schemes src-path dst-path
+                                      xfer-compression-scheme-alist src-path dst-path
                                       'both force-compress)))
                       (source (expand-file-name src-file src-path))
                       (destination (expand-file-name dst-file dst-path))
