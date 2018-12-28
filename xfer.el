@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-12-18 06:35:13 dharms>
+;; Modified Time-stamp: <2018-12-28 08:04:54 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -681,12 +681,13 @@ that forces a compression method by name, see
                                   (file-relative-name (expand-file-name dst-file dst-path)
                                                       src-path))
                         (abbreviate-file-name (expand-file-name dst-file dst-path))))))
-          (cons t (format "xfer: %s ==> %s [%s, %.3f sec.]"
+          (cons t (format "xfer: %s ==> %s [%s, %s]"
                           src dst
                           (if (cdr done)
                               (format "%s/%s" how (cdr done))
                             how)
-                          (float-time (time-subtract (current-time) start)))))
+                          (format-seconds "%H, %M and %Z%S"
+                                          (time-subtract (current-time) start)))))
       (cons nil (format "Unable to transfer %s to %s" src dst)))))
 
 (provide 'xfer)
