@@ -1,9 +1,9 @@
 ;;; xfer.el --- emacs file transfer utilities
-;; Copyright (C) 2018  Dan Harms (dharms)
+;; Copyright (C) 2018-2019  Dan Harms (dharms)
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-12-28 08:04:54 dharms>
+;; Modified Time-stamp: <2019-01-02 15:12:32 dan.harms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -687,7 +687,9 @@ that forces a compression method by name, see
                               (format "%s/%s" how (cdr done))
                             how)
                           (format-seconds "%H, %M and %Z%S"
-                                          (time-subtract (current-time) start)))))
+                                          (float-time
+                                           (time-subtract
+                                            (current-time) start))))))
       (cons nil (format "Unable to transfer %s to %s" src dst)))))
 
 (provide 'xfer)
