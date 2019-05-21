@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2019-01-02 15:12:32 dan.harms>
+;; Modified Time-stamp: <2019-05-21 15:06:40 dan.harms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -202,7 +202,7 @@ If PATH is not supplied, `default-directory' is used."
                  (xfer--remote-homedir-find filename))))
     (abbreviate-file-name filename)))
 
-(defun xfer--exe-version (exe regex)
+(defun xfer-exe-version (exe regex)
   "Find version of EXE given REGEX.
 EXE is a full command, including version parameter.
 The first capture group should be the executable's version number."
@@ -210,12 +210,12 @@ The first capture group should be the executable's version number."
     (when (string-match regex str)
       (match-string-no-properties 1 str))))
 
-(defun xfer--test-exe-version (exe regex version &optional path)
+(defun xfer-test-exe-version (exe regex version &optional path)
   "Test EXE is at least VERSION according to REGEX at PATH."
   (let* ((default-directory (if path
                                 (file-name-directory path)
                               default-directory))
-         (curr (xfer--exe-version exe regex)))
+         (curr (xfer-exe-version exe regex)))
     (and curr
          (cond ((stringp version)
                 (not (version< curr version)))
@@ -241,14 +241,14 @@ specifies a compression method by name."
             (xfer-find-executable compress src-path)
             (or (not version-compress)
                 (seq-find (lambda (ver)
-                            (xfer--test-exe-version
+                            (xfer-test-exe-version
                              (car version-compress)
                              (car ver) (cdr ver) src-path))
                           (cdr version-compress)))
             (xfer-find-executable uncompress dst-path)
             (or (not version-uncompress)
                 (seq-find (lambda (ver)
-                            (xfer--test-exe-version
+                            (xfer-test-exe-version
                              (car version-uncompress)
                              (car ver) (cdr ver) dst-path))
                           (cdr version-uncompress)))))
@@ -258,7 +258,7 @@ specifies a compression method by name."
             (xfer-find-executable compress src-path)
             (or (not version-compress)
                 (seq-find (lambda (ver)
-                            (xfer--test-exe-version
+                            (xfer-test-exe-version
                              (car version-compress)
                              (car ver) (cdr ver) src-path))
                           (cdr version-compress)))))
@@ -270,7 +270,7 @@ specifies a compression method by name."
             (xfer-find-executable uncompress dst-path)
             (or (not version-uncompress)
                 (seq-find (lambda (ver)
-                            (xfer--test-exe-version
+                            (xfer-test-exe-version
                              (car version-uncompress)
                              (car ver) (cdr ver) dst-path))
                           (cdr version-uncompress))))))))
