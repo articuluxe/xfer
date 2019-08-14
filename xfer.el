@@ -1,9 +1,9 @@
-;;; xfer.el --- emacs file transfer utilities
+;;; xfer.el --- Emacs file transfer utilities
 ;; Copyright (C) 2018-2019  Dan Harms (dharms)
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2019-05-21 15:06:40 dan.harms>
+;; Modified Time-stamp: <2019-08-14 09:36:12 dan.harms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
