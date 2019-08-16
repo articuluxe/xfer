@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2019-08-14 09:36:12 dan.harms>
+;; Modified Time-stamp: <2019-08-16 09:02:10 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -541,7 +541,11 @@ order, specifying the transfer method by name, see
 `xfer-transfer-schemes'.  Optional FORCE-COMPRESS is a symbol
 that forces a compression method by name, see
 `xfer-compression-scheme-alist', or 'none to inhibit compression."
-  (interactive "fSource file: \nGDestination: \nsMethod: \nsCompress: ")
+  (interactive (list
+                (read-file-name "Source file: " nil nil t)
+                (read-file-name "Destination: ")
+                (completing-read "Method: " xfer-transfer-schemes)
+                (completing-read "Compression: " xfer-compression-schemes)))
   (let ((result (xfer-transfer-file-silent src dst force force-compress)))
     (if (car result)
         (prog1 t
@@ -556,7 +560,11 @@ order, specifying the transfer method by name, see
 `xfer-transfer-schemes'.  Optional FORCE-COMPRESS is a symbol
 that forces a compression method by name, see
 `xfer-compression-scheme-alist', or 'none to inhibit compression."
-  (interactive "fSource file: \nGDestination: \nsMethod: \nsCompress: ")
+  (interactive (list
+                (read-file-name "Source file: " nil nil t)
+                (read-file-name "Destination: ")
+                (completing-read "Method: " xfer-transfer-schemes)
+                (completing-read "Compression: " xfer-compression-schemes)))
   (let* ((src-path (file-name-directory src))
          (src-file (file-name-nondirectory src))
          (src-remote (file-remote-p src))
