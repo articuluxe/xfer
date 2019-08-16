@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2019-08-16 09:02:10 dharms>
+;; Modified Time-stamp: <2019-08-16 15:05:17 dan.harms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -580,8 +580,7 @@ that forces a compression method by name, see
          source-host source-user source-dir source-file ;for remote hosts
          dest-host dest-user dest-dir dest-file         ;for remote hosts
          scheme done)
-    (unless (memq 'standard methods)
-      (setq methods (append methods (list 'standard))))
+    (setq methods (append (delq 'standard methods) (list 'standard)))
     (unless (file-exists-p src)
       (user-error "File '%s' does not exist" src))
     (when (string-empty-p dst-file)
