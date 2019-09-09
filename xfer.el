@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2019-08-16 15:05:17 dan.harms>
+;; Modified Time-stamp: <2019-09-09 16:00:01 dan.harms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -27,6 +27,7 @@
 ;;
 
 ;;; Code:
+(require 'xfer-util)
 (require 'subr-x)
 (require 'seq)
 (require 'tramp)
@@ -172,55 +173,6 @@ If local, host strings should be nil."
     (format-spec spec `((?s . ,source)
                         (?d . ,destination)))))
 
-(defun xfer--remote-homedir-find (file)
-  "Return `$HOME' on remote host of FILE, a full tramp path.
-Note that `getenv' always operates on the local host."
-  (let ((default-directory (file-name-directory file))
-        (shell-file-name "sh"))
-    (string-trim (shell-command-to-string "echo $HOME"))))
-
-(defun xfer-remote-executable-find (exe)
-  "Try to find the binary associated with EXE on a remote host.
-Note that `executable-find' always operates on the local host."
-  (string-trim (shell-command-to-string (format "which %s" exe))))
-
-(defun xfer-find-executable (exe &optional path)
-  "Search for executable EXE given directory PATH.
-If PATH is not supplied, `default-directory' is used."
-  (let* ((default-directory (if path
-                                (file-name-directory path)
-                              default-directory))
-         (func (if (file-remote-p default-directory)
-                   #'xfer-remote-executable-find
-                 #'executable-find)))
-    (funcall func exe)))
-
-(defun xfer-abbreviate-file-name (filename)
-  "Return a shortened version of FILENAME for remote hosts."
-  (let ((abbreviated-home-dir
-         (format "\\`%s\\(/\\|\\'\\)"
-                 (xfer--remote-homedir-find filename))))
-    (abbreviate-file-name filename)))
-
-(defun xfer-exe-version (exe regex)
-  "Find version of EXE given REGEX.
-EXE is a full command, including version parameter.
-The first capture group should be the executable's version number."
-  (let* ((str (string-trim (shell-command-to-string exe))))
-    (when (string-match regex str)
-      (match-string-no-properties 1 str))))
-
-(defun xfer-test-exe-version (exe regex version &optional path)
-  "Test EXE is at least VERSION according to REGEX at PATH."
-  (let* ((default-directory (if path
-                                (file-name-directory path)
-                              default-directory))
-         (curr (xfer-exe-version exe regex)))
-    (and curr
-         (cond ((stringp version)
-                (not (version< curr version)))
-               ((eq version 't) t)))))
-
 (defun xfer--test-compression-method (src-path dst-path scheme
                                                &optional type force)
   "Test SRC-PATH and DST-PATH for compression method SCHEME.
@@ -238,27 +190,27 @@ specifies a compression method by name."
     (cond ((or (not type) (eq type 'both))
            (and
             (or (not force) (eq force method))
-            (xfer-find-executable compress src-path)
+            (xfer-util-find-executable compress src-path)
             (or (not version-compress)
                 (seq-find (lambda (ver)
-                            (xfer-test-exe-version
+                            (xfer-util-test-exe-version
                              (car version-compress)
                              (car ver) (cdr ver) src-path))
                           (cdr version-compress)))
-            (xfer-find-executable uncompress dst-path)
+            (xfer-util-find-executable uncompress dst-path)
             (or (not version-uncompress)
                 (seq-find (lambda (ver)
-                            (xfer-test-exe-version
+                            (xfer-util-test-exe-version
                              (car version-uncompress)
                              (car ver) (cdr ver) dst-path))
                           (cdr version-uncompress)))))
           ((eq type 'compress)
            (and
             (or (not force) (eq force method))
-            (xfer-find-executable compress src-path)
+            (xfer-util-find-executable compress src-path)
             (or (not version-compress)
                 (seq-find (lambda (ver)
-                            (xfer-test-exe-version
+                            (xfer-util-test-exe-version
                              (car version-compress)
                              (car ver) (cdr ver) src-path))
                           (cdr version-compress)))))
@@ -267,10 +219,10 @@ specifies a compression method by name."
             (or (not force) (eq force method))
             (member (file-name-extension src-path)
                     (plist-get (cdr scheme) :extensions))
-            (xfer-find-executable uncompress dst-path)
+            (xfer-util-find-executable uncompress dst-path)
             (or (not version-uncompress)
                 (seq-find (lambda (ver)
-                            (xfer-test-exe-version
+                            (xfer-util-test-exe-version
                              (car version-uncompress)
                              (car ver) (cdr ver) dst-path))
                           (cdr version-uncompress))))))))
@@ -386,10 +338,10 @@ name."
              (remote-exe (plist-get method :remote-exe))
              (pred (plist-get method :predicate)))
         (and (or (not force) (eq force (car scheme)))
-             (xfer-find-executable local-exe src)
+             (xfer-util-find-executable local-exe src)
              ;; we don't require remote executable be present
              (or (not remote-exe)
-                 (xfer-find-executable remote-exe dst))
+                 (xfer-util-find-executable remote-exe dst))
              (if (and pred (functionp pred))
                  (funcall pred src dst) t)))))
 
