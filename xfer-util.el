@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <dan.harms@xrtrading.com>
 ;; Created: Monday, September  9, 2019
 ;; Version: 1.0
-;; Modified Time-stamp: <2019-09-09 16:00:04 dan.harms>
+;; Modified Time-stamp: <2019-09-17 07:14:04 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -75,6 +75,24 @@ The first capture group should be the executable's version number."
          (cond ((stringp version)
                 (not (version< curr version)))
                ((eq version 't) t)))))
+
+(defun xfer-util-test-exe-versions (scheme &optional path)
+  "Test an executable according to SCHEME.
+PATH is an optional path, otherwise `default-directory' is used.
+SCHEME is an alist of the form:
+'(version-cmd . ((regex . ver) (regex . ver)))
+where `version-cmd' is a string used to obtain a version,
+regex is a regular expression used to match the output,
+in which the first capture group should be the version number,
+and ver is a minimum version number to test for, or the atom t
+in order to match all versions."
+  (seq-find (lambda (version)
+              (xfer-util-test-exe-version
+               (car scheme)
+               (car version)
+               (cdr version)
+               path))
+            (cdr scheme)))
 
 (provide 'xfer-util)
 ;;; xfer-util.el ends here
