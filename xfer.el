@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2019-09-09 16:00:01 dan.harms>
+;; Modified Time-stamp: <2019-10-11 11:53:55 dan.harms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -149,7 +149,7 @@ If local, host strings should be nil."
                             (concat src-dir src-file))
                   (expand-file-name src-file src-dir)))
         (source-home (if src-host
-                         (xfer--remote-homedir-find src-fullname)
+                         (xfer-util-remote-homedir-find src-fullname)
                        (getenv "HOME")))
         (destination (if dst-host
                          (format "%s:%s"
@@ -159,7 +159,7 @@ If local, host strings should be nil."
                                  (concat dst-dir dst-file))
                        (expand-file-name dst-file dst-dir)))
         (dest-home (if dst-host
-                       (xfer--remote-homedir-find dst-fullname)
+                       (xfer-util-remote-homedir-find dst-fullname)
                      (getenv "HOME")))
         (tilde "~/")
         (spec "pscp -batch -p -q %s %d"))
@@ -616,7 +616,7 @@ that forces a compression method by name, see
                            source-host)
                          ":"
                          (replace-regexp-in-string
-                          (xfer--remote-homedir-find
+                          (xfer-util-remote-homedir-find
                            (expand-file-name src-file src-path))
                           "~" source-dir)
                          src-file)
@@ -631,7 +631,7 @@ that forces a compression method by name, see
                            dest-host)
                          ":"
                          (replace-regexp-in-string
-                          (xfer--remote-homedir-find
+                          (xfer-util-remote-homedir-find
                            (expand-file-name dst-file dst-path))
                           "~" dest-dir)
                          dst-file)
