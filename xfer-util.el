@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <dan.harms@xrtrading.com>
 ;; Created: Monday, September  9, 2019
 ;; Version: 1.0
-;; Modified Time-stamp: <2019-09-17 07:14:04 dharms>
+;; Modified Time-stamp: <2019-11-25 13:12:37 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -37,7 +37,12 @@ Note that `getenv' always operates on the local host."
 (defun xfer-util-remote-executable-find (exe)
   "Try to find the binary associated with EXE on a remote host.
 Note that `executable-find' always operates on the local host."
-  (string-trim (shell-command-to-string (format "which %s" exe))))
+  (let ((result
+         (string-trim
+          (shell-command-to-string (format "which %s" exe)))))
+    (and
+     (not (string-match-p (format "which: no %s" exe) result))
+     result)))
 
 (defun xfer-util-find-executable (exe &optional path)
   "Search for executable EXE given directory PATH.
