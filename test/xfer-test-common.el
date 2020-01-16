@@ -1,10 +1,10 @@
 ;;; xfer-test-common.el --- common test utilities for xfer
-;; Copyright (C) 2017-2018  Dan Harms (dharms)
+;; Copyright (C) 2017-2018, 2020  Dan Harms (dharms)
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Friday, March 31, 2017
 ;; Version: 1.0
-;; Modified Time-stamp: <2018-11-06 08:06:11 dharms>
-;; Modified by: Dan Harms
+;; Modified Time-stamp: <2020-01-16 08:51:40 Dan.Harms>
+;; Modified by: Dan.Harms
 ;; Keywords: tools xfer test
 ;; URL: https://github.com/articuluxe/xfer.git
 ;; Package-Requires: ((emacs "25.1"))
@@ -28,22 +28,6 @@
 
 ;;; Code:
 
-;; transfer dependencies from argv into load-path
-(let ((lst (cdr argv))
-      add elt)
-  (setq argv nil)
-  (while lst
-    (setq elt (car lst))
-    (if add
-        (progn
-          (push elt load-path)
-          (setq add nil))
-      (unless
-          (setq add (string= elt "-L"))
-        (push elt argv)))
-      (setq lst (cdr lst))))
-(push (concat (file-name-directory load-file-name) "/..") load-path)
-(push (file-name-directory load-file-name) load-path)
 
 (require 'ert)
 (setq debug-on-error t)
