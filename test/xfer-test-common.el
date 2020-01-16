@@ -28,9 +28,11 @@
 
 ;;; Code:
 
-
 (require 'ert)
 (setq debug-on-error t)
+(defvar base-test-dir
+  (file-name-as-directory
+   (file-name-directory load-file-name)))
 
 ;; project-specific code begins here
 (require 'xfer)
