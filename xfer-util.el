@@ -1,10 +1,10 @@
 ;;; xfer-util.el --- Utilities for xfer
-;; Copyright (C) 2019  Dan Harms (dan.harms)
+;; Copyright (C) 2019-2020  Dan Harms (dan.harms)
 ;; Author: Dan Harms <dan.harms@xrtrading.com>
 ;; Created: Monday, September  9, 2019
 ;; Version: 1.0
-;; Modified Time-stamp: <2019-11-25 13:12:37 dharms>
-;; Modified by: Dan Harms
+;; Modified Time-stamp: <2020-01-16 08:39:42 Dan.Harms>
+;; Modified by: Dan.Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
 ;; Package-Requires: ((emacs "25.1"))
@@ -27,12 +27,21 @@
 ;;
 
 ;;; Code:
+(defun xfer-util-echo-env (var &optional path)
+  "Return the value of the environment variable VAR at PATH.
+PATH may be a remote path."
+  (interactive "")
+  (let ((default-directory (or path default-directory))
+        (shell-file-name "sh"))
+    (string-trim
+     (shell-command-to-string
+      (format "echo $%s" var)))))
+
 (defun xfer-util-remote-homedir-find (file)
   "Return `$HOME' on remote host of FILE, a full tramp path.
 Note that `getenv' always operates on the local host."
-  (let ((default-directory (file-name-directory file))
-        (shell-file-name "sh"))
-    (string-trim (shell-command-to-string "echo $HOME"))))
+  (xfer-util-echo-env "HOME" (file-name-as-directory
+                                 (file-name-directory file))))
 
 (defun xfer-util-remote-executable-find (exe)
   "Try to find the binary associated with EXE on a remote host.
