@@ -1,9 +1,9 @@
 ;;; xfer.el --- Emacs file transfer utilities
-;; Copyright (C) 2018-2019  Dan Harms (dharms)
+;; Copyright (C) 2018-2020  Dan Harms (dharms)
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2019-10-11 11:53:55 dan.harms>
+;; Modified Time-stamp: <2020-01-23 11:31:26 dan.harms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -478,7 +478,7 @@ function, and can be accessed using `async-read' and `async-get'."
     (async-start
      `(lambda ()
         (setq inhibit-message t)
-        ,(async-inject-variables "load-path\\|xfer-.+-schemes")
+        ,(async-inject-variables "load-path\\|xfer-.+-schemes\\|tramp-default-.+")
         (require 'xfer)
         (xfer-transfer-file-silent ,src ,dst
                                    (quote ,force)
