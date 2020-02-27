@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2020-01-23 11:31:26 dan.harms>
+;; Modified Time-stamp: <2020-02-27 13:01:52 dan.harms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -362,7 +362,11 @@ remote.  SCHEME is the transfer scheme, see
 `xfer-transfer-scheme-alist', which may have an opinion."
   (and (not (xfer-file-compressed-p file))
        ;; never compress on same host
-       (if src (if dst (not (string= src dst)) t) dst)))
+       (if src
+           (if dst
+               (not (xfer-util-same-hostname-p src dst))
+             t)
+         dst)))
 ;; TODO take into account file size
 
 (defun xfer--copy-file (src-fullname src-host src-user src-dir src-file

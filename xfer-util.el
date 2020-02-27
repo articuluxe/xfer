@@ -3,8 +3,8 @@
 ;; Author: Dan Harms <dan.harms@xrtrading.com>
 ;; Created: Monday, September  9, 2019
 ;; Version: 1.0
-;; Modified Time-stamp: <2020-01-16 08:39:42 Dan.Harms>
-;; Modified by: Dan.Harms
+;; Modified Time-stamp: <2020-02-27 13:02:14 dan.harms>
+;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
 ;; Package-Requires: ((emacs "25.1"))
@@ -107,6 +107,10 @@ in order to match all versions."
                (cdr version)
                path))
             (cdr scheme)))
+
+(defun xfer-util-same-hostname-p (host1 host2)
+  "Test whether HOST1 and HOST2 are the same host."
+  (string= host1 host2))
 
 (provide 'xfer-util)
 ;;; xfer-util.el ends here
