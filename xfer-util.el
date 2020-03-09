@@ -3,8 +3,8 @@
 ;; Author: Dan Harms <dan.harms@xrtrading.com>
 ;; Created: Monday, September  9, 2019
 ;; Version: 1.0
-;; Modified Time-stamp: <2020-02-27 13:02:14 dan.harms>
-;; Modified by: Dan Harms
+;; Modified Time-stamp: <2020-03-09 09:41:45 Dan.Harms>
+;; Modified by: Dan.Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
 ;; Package-Requires: ((emacs "25.1"))
@@ -108,9 +108,20 @@ in order to match all versions."
                path))
             (cdr scheme)))
 
+(defun xfer-util--normalize-hostname (str)
+  "Attempt to normalize hostname STR for further comparisons."
+  (let ((i (string-match "^\\([^.]+\\)" str)))
+    (if i
+        (match-string-no-properties 1 str)
+      str)))
+
 (defun xfer-util-same-hostname-p (host1 host2)
   "Test whether HOST1 and HOST2 are the same host."
-  (string= host1 host2))
+  (or (eq t (compare-strings host1 nil nil host2 nil nil t))
+      (eq t (compare-strings
+             (xfer-util--normalize-hostname host1) nil nil
+             (xfer-util--normalize-hostname host2) nil nil
+             t))))
 
 (provide 'xfer-util)
 ;;; xfer-util.el ends here

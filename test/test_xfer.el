@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2020-01-16 08:56:41 Dan.Harms>
+;; Modified Time-stamp: <2020-03-09 09:44:23 Dan.Harms>
 ;; Modified by: Dan.Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -29,6 +29,14 @@
 ;;; Code:
 (load-file "test/xfer-test-common.el")
 (require 'xfer)
+
+(ert-deftest xfer-test-same-hostname-p ()
+  (should (xfer-util-same-hostname-p "mars" "mars"))
+  (should (not (xfer-util-same-hostname-p "sweater" "cardigan")))
+  (should (xfer-util-same-hostname-p "mars" "mars.company.local"))
+  (should (xfer-util-same-hostname-p "MARS" "mars.company.local"))
+  (should (not (xfer-util-same-hostname-p "sweater" "cardigan.comp.local")))
+  )
 
 (ert-deftest xfer-test-is-compressed-p ()
   (should (xfer-file-compressed-p "test.zip"))
