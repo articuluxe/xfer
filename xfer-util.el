@@ -3,8 +3,8 @@
 ;; Author: Dan Harms <dan.harms@xrtrading.com>
 ;; Created: Monday, September  9, 2019
 ;; Version: 1.0
-;; Modified Time-stamp: <2020-03-09 09:41:45 Dan.Harms>
-;; Modified by: Dan.Harms
+;; Modified Time-stamp: <2020-04-21 10:17:04 dharms>
+;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
 ;; Package-Requires: ((emacs "25.1"))
@@ -122,6 +122,17 @@ in order to match all versions."
              (xfer-util--normalize-hostname host1) nil nil
              (xfer-util--normalize-hostname host2) nil nil
              t))))
+
+(defun xfer-util-debug (string)
+  "Write STRING to a debug file."
+  (let* ((day (format-time-string "%Y%m%d"))
+         (time (format-time-string "%H:%M:%S"))
+         (file (expand-file-name
+                (format "~/.%s-emacs-%d-xfer.log"
+                        day (emacs-pid)))))
+    (append-to-file
+     (format "%s-%s: %s\n" day time string)
+     nil file)))
 
 (provide 'xfer-util)
 ;;; xfer-util.el ends here
