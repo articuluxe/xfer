@@ -3,8 +3,8 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2020-03-09 09:44:23 Dan.Harms>
-;; Modified by: Dan.Harms
+;; Modified Time-stamp: <2020-04-21 10:30:48 dharms>
+;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
 ;; Package-Requires: ((emacs "25.1"))
@@ -29,6 +29,7 @@
 ;;; Code:
 (load-file "test/xfer-test-common.el")
 (require 'xfer)
+(require 'xfer-util)
 
 (ert-deftest xfer-test-same-hostname-p ()
   (should (xfer-util-same-hostname-p "mars" "mars"))
