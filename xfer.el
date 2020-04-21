@@ -3,7 +3,7 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2020-02-27 13:01:52 dan.harms>
+;; Modified Time-stamp: <2020-04-21 11:06:05 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -362,11 +362,9 @@ remote.  SCHEME is the transfer scheme, see
 `xfer-transfer-scheme-alist', which may have an opinion."
   (and (not (xfer-file-compressed-p file))
        ;; never compress on same host
-       (if src
-           (if dst
-               (not (xfer-util-same-hostname-p src dst))
-             t)
-         dst)))
+       (not (xfer-util-same-hostname-p
+             (or src (system-name))
+             (or dst (system-name))))))
 ;; TODO take into account file size
 
 (defun xfer--copy-file (src-fullname src-host src-user src-dir src-file
@@ -548,30 +546,9 @@ that forces a compression method by name, see
               (when (setq scheme (xfer--find-scheme src-path dst-path
                                                     xfer-transfer-scheme-alist
                                                     method))
-                (let ((compress (and (not (eq force-compress 'none))
-                                     (xfer--should-compress src-file src-remote
-                                                            dst-remote scheme)
-                                     (xfer--find-compression-method
-                                      xfer-compression-scheme-alist src-path dst-path
-                                      'both force-compress)))
-                      (source (expand-file-name src-file src-path))
+                (let ((source (expand-file-name src-file src-path))
                       (destination (expand-file-name dst-file dst-path))
-                      result cmp-file)
-                  (when compress
-                    (setq result (xfer--compress-file src-path src-file
-                                                      dst-file compress))
-                    (if (setq cmp-file (car result))
-                        (progn
-                          (setq source (expand-file-name cmp-file src-path))
-                          (setq destination (expand-file-name cmp-file dst-path)))
-                      (when xfer-debug
-                        (message "xfer: %s compression failed for %s: %s"
-                                 (car compress) source (cdr result)))
-                      ;; but carry on
-                      (setq compress nil)
-                      ;; TODO if compression was destructive, replenish src file
-                      ))
-                  ;; update tracking variables
+                      compress result cmp-file)
                   (if src-remote
                       (with-parsed-tramp-file-name source var
                         (setq source-host var-host)
@@ -588,6 +565,27 @@ that forces a compression method by name, see
                         (setq dest-file (file-name-nondirectory var-localname)))
                     (setq dest-dir (file-name-directory destination))
                     (setq dest-file (file-name-nondirectory destination)))
+                  (setq compress (and (not (eq force-compress 'none))
+                                      (xfer--should-compress src-file source-host
+                                                             dest-host scheme)
+                                      (xfer--find-compression-method
+                                       xfer-compression-scheme-alist src-path dst-path
+                                       'both force-compress)))
+                  (when compress
+                    (setq result (xfer--compress-file src-path src-file
+                                                      dst-file compress))
+                    (if (setq cmp-file (car result))
+                        (progn
+                          (setq source (expand-file-name cmp-file src-path))
+                          (setq destination (expand-file-name cmp-file dst-path)))
+                      (when xfer-debug
+                        (message "xfer: %s compression failed for %s: %s"
+                                 (car compress) source (cdr result)))
+                      ;; but carry on
+                      (setq compress nil)
+                      ;; TODO if compression was destructive, replenish src file
+                      ))
+                  ;; update tracking variables
                   ;; perform the transfer
                   (if (eq (car scheme) 'standard)
                       (let ((large-file-warning-threshold nil))
