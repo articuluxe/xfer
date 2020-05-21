@@ -3,11 +3,11 @@
 ;; Author: Dan Harms <enniomore@icloud.com>
 ;; Created: Tuesday, October 30, 2018
 ;; Version: 1.0
-;; Modified Time-stamp: <2020-04-21 11:06:05 dharms>
+;; Modified Time-stamp: <2020-05-21 07:35:57 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
-;; Package-Requires: ((emacs "25.1"))
+;; Package-Requires: ((emacs "26.1"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -364,8 +364,10 @@ remote.  SCHEME is the transfer scheme, see
        ;; never compress on same host
        (not (xfer-util-same-hostname-p
              (or src (system-name))
-             (or dst (system-name))))))
-;; TODO take into account file size
+             (or dst (system-name))))
+       (> (file-attribute-size (file-attributes file))
+          (* 1024 512))
+       ))
 
 (defun xfer--copy-file (src-fullname src-host src-user src-dir src-file
                                      dst-fullname dst-host dst-user
@@ -566,7 +568,7 @@ that forces a compression method by name, see
                     (setq dest-dir (file-name-directory destination))
                     (setq dest-file (file-name-nondirectory destination)))
                   (setq compress (and (not (eq force-compress 'none))
-                                      (xfer--should-compress src-file source-host
+                                      (xfer--should-compress source source-host
                                                              dest-host scheme)
                                       (xfer--find-compression-method
                                        xfer-compression-scheme-alist src-path dst-path
