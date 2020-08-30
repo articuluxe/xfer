@@ -40,5 +40,8 @@ Part of the point of having a library like this is to take advantage of the fast
 
 Ensure xfer.el is in a directory present inside your `load-path`.
 
+## Continuous Integration ##
+![CI](https://github.com/articuluxe/xfer/workflows/CI/badge.svg)
+
 ## Commands ##
 
