@@ -1,0 +1,26 @@
+name: "CI"
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - nothere.org
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        emacs_version:
+          - 26.3
+    steps:
+      - uses: purcell/setup-emacs@master
+        with:
+          version: ${{ matrix.emacs_version }}
+
+      - uses: actions/checkout@v2
+      - name: Test
+        if: always()
+        run: make check
+
