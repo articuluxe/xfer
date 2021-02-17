@@ -1,9 +1,9 @@
 ;;; xfer-util.el --- Utilities for xfer
-;; Copyright (C) 2019-2020  Dan Harms (dan.harms)
+;; Copyright (C) 2019-2021  Dan Harms (dan.harms)
 ;; Author: Dan Harms <dan.harms@xrtrading.com>
 ;; Created: Monday, September  9, 2019
 ;; Version: 1.0
-;; Modified Time-stamp: <2020-04-21 10:17:04 dharms>
+;; Modified Time-stamp: <2021-02-17 17:27:46 dharms>
 ;; Modified by: Dan Harms
 ;; Keywords: tools
 ;; URL: https://github.com/articuluxe/xfer.git
@@ -123,13 +123,13 @@ in order to match all versions."
              (xfer-util--normalize-hostname host2) nil nil
              t))))
 
-(defun xfer-util-debug (string)
-  "Write STRING to a debug file."
+(defun xfer-util-debug (string &optional subname)
+  "Write STRING to a debug file named with SUBNAME."
   (let* ((day (format-time-string "%Y%m%d"))
          (time (format-time-string "%H:%M:%S"))
          (file (expand-file-name
-                (format "~/.%s-emacs-%d-xfer.log"
-                        day (emacs-pid)))))
+                (format "~/.%s-emacs-%d-%s.log"
+                        day (emacs-pid) (or subname "xfer")))))
     (append-to-file
      (format "%s-%s: %s\n" day time string)
      nil file)))
